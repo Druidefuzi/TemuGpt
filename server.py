@@ -22,6 +22,8 @@ LM_STUDIO_URL = "http://localhost:1234/v1/chat/completions"
 MODEL = "huihui-qwen3-vl-4b-instruct-abliterated"
 OUTPUT_DIR = Path.home() / "Dokumente" / "LLM_Output"
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+EXPORT_IMG_DIR = Path(r"C:\Users\Druid\office-assistent\exportImg")
+EXPORT_IMG_DIR.mkdir(parents=True, exist_ok=True)
 MODELS_DIR = Path.home() / ".lmstudio" / "models"
 LM_API = "http://localhost:1234"
 COMFY_URL = "http://127.0.0.1:8188"
@@ -867,32 +869,62 @@ def smart_chat():
             if not models:
                 yield "data: " + json.dumps({"type": "step", "text": "⚠️ Keine Modelle — nutze Standard", "status": "done"}) + "\n\n"
             else:
-                short_name = models[0].split("\\")[-1].split("/")[-1]
+                short_name = models[1].split("\\")[-1].split("/")[-1]
                 yield "data: " + json.dumps({"type": "step", "text": f"🤖 Modell: {short_name}", "status": "done"}) + "\n\n"
-            yield "data: " + json.dumps({"type": "step", "text": "🖼️ Generiere Bild...", "status": "active"}) + "\n\n"
-            result = comfy_generate(final_prompt, final_ratio, final_negative)
-            if not result["ok"]:
-                yield "data: " + json.dumps({"type": "step", "text": f"❌ {result.get('error')}", "status": "error"}) + "\n\n"
-                yield "data: " + json.dumps({"type": "done"}) + "\n\n"
-                return
+
+            # LLM aus VRAM entladen um Platz für Anima freizugeben
             try:
-                params = {"filename": result["filename"], "type": result["type"]}
-                if result["subfolder"]:
-                    params["subfolder"] = result["subfolder"]
-                img_resp = requests.get(f"{COMFY_URL}/view", params=params, timeout=15)
-                img_resp.raise_for_status()
-                b64 = base64.b64encode(img_resp.content).decode("utf-8")
-                short_model = result["model"].split("\\")[-1].split("/")[-1]
-                yield "data: " + json.dumps({
-                    "type": "image_done",
-                    "image_b64": b64,
-                    "filename": result["filename"],
-                    "model": short_model,
-                    "prompt": img_prompt
-                }) + "\n\n"
-            except Exception as e:
-                yield "data: " + json.dumps({"type": "step", "text": f"❌ Bild laden: {e}", "status": "error"}) + "\n\n"
-                yield "data: " + json.dumps({"type": "done"}) + "\n\n"
+                instance_id = active_model["name"]
+                unload_resp = requests.post(f"{LM_API}/api/v1/models/unload", json={"instance_id": instance_id}, timeout=10)
+                if unload_resp.ok:
+                    print(f"[Image] LLM '{instance_id}' entladen — VRAM frei für ComfyUI")
+                    yield "data: " + json.dumps({"type": "step", "text": "🧹 LLM entladen (VRAM frei)", "status": "done"}) + "\n\n"
+                else:
+                    print(f"[Image] Entladen fehlgeschlagen: {unload_resp.text}")
+            except Exception as ue:
+                print(f"[Image] Entladen fehlgeschlagen: {ue}")
+
+            yield "data: " + json.dumps({"type": "step", "text": "🖼️ Generiere Bild...", "status": "active"}) + "\n\n"
+
+            for event in comfy_generate_stream(final_prompt, final_ratio, final_negative):
+                etype = event.get("type")
+
+                if etype == "image_preview":
+                    # Live-Preview direkt durchleiten
+                    yield "data: " + json.dumps({"type": "image_preview", "b64": event["b64"]}) + "\n\n"
+
+                elif etype == "image_progress":
+                    yield "data: " + json.dumps({
+                        "type": "image_progress",
+                        "value": event["value"],
+                        "max": event["max"],
+                        "pct": event["pct"]
+                    }) + "\n\n"
+
+                elif etype == "image_final":
+                    # Auf Disk speichern
+                    try:
+                        ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+                        save_path = EXPORT_IMG_DIR / f"{ts}_{event['filename']}"
+                        save_path.write_bytes(event["img_bytes"])
+                        print(f"[Image] Gespeichert: {save_path}")
+                    except Exception as se:
+                        print(f"[Image] Speichern fehlgeschlagen: {se}")
+
+                    short_model = event["model"].split("\\")[-1].split("/")[-1]
+                    yield "data: " + json.dumps({
+                        "type": "image_done",
+                        "image_b64": event["b64"],
+                        "filename": event["filename"],
+                        "model": short_model,
+                        "prompt": img_prompt
+                    }) + "\n\n"
+                    return
+
+                elif etype == "error":
+                    yield "data: " + json.dumps({"type": "step", "text": f"❌ {event.get('text')}", "status": "error"}) + "\n\n"
+                    yield "data: " + json.dumps({"type": "done"}) + "\n\n"
+                    return
 
         return Response(stream_with_context(img_generator()), mimetype="text/event-stream",
                         headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
@@ -1386,7 +1418,7 @@ COMFY_WORKFLOW = {
     },
     "44": {
         "inputs": {
-            "unet_name": "Anima\\anima-preview.safetensors",
+            "unet_name": "Anima\\anima-preview2.safetensors",
             "weight_dtype": "default"
         },
         "class_type": "UNETLoader"
@@ -1447,51 +1479,114 @@ def generate_danbooru_prompt(user_message: str) -> dict:
     }
 
 
-def comfy_generate(prompt_text: str, aspect_ratio: str = "3:4 (Golden Ratio)", negative_prompt: str = "worst quality, low quality, score_1, score_2, blurry") -> dict:
-    """Sendet einen Workflow an ComfyUI und wartet auf das Ergebnis."""
-    import copy, random, time
+def comfy_generate_stream(prompt_text: str, aspect_ratio: str = "3:4 (Golden Ratio)", negative_prompt: str = "worst quality, low quality, score_1, score_2, blurry"):
+    """Generator: Streamt ComfyUI-Previews + Fortschritt via WebSocket.
+    Yieldet dicts: image_preview | image_progress | image_final | error
+    """
+    import copy, random, struct
+    try:
+        import websocket
+    except ImportError:
+        yield {"type": "error", "text": "websocket-client nicht installiert: pip install websocket-client"}
+        return
 
-    # Modell holen
     models = comfy_get_models()
-    unet_name = models[0] if models else COMFY_WORKFLOW["44"]["inputs"]["unet_name"]
+    unet_name = models[1] if models else COMFY_WORKFLOW["44"]["inputs"]["unet_name"]
     print(f"[ComfyUI] Nutze Modell: {unet_name}")
 
-    # Workflow patchen
     wf = copy.deepcopy(COMFY_WORKFLOW)
     wf["44"]["inputs"]["unet_name"] = unet_name
     wf["11"]["inputs"]["text"] = prompt_text
     wf["12"]["inputs"]["text"] = negative_prompt
     wf["19"]["inputs"]["seed"] = random.randint(0, 2**32 - 1)
 
-    # Job einreichen
-    payload = {"prompt": wf, "client_id": "office-assistant"}
-    resp = requests.post(f"{COMFY_URL}/prompt", json=payload, timeout=10)
-    resp.raise_for_status()
-    prompt_id = resp.json()["prompt_id"]
-    print(f"[ComfyUI] Job gestartet: {prompt_id}")
+    client_id = f"office-{random.randint(10000, 99999)}"
 
-    # Auf Ergebnis warten (max 3 Minuten)
-    for _ in range(180):
-        time.sleep(1)
-        hist = requests.get(f"{COMFY_URL}/history/{prompt_id}", timeout=5).json()
-        if prompt_id in hist:
-            outputs = hist[prompt_id].get("outputs", {})
-            for node_out in outputs.values():
-                images = node_out.get("images", [])
-                if images:
-                    img_info = images[0]
-                    # PreviewImage → type="temp", SaveImage → type="output"
-                    img_type = img_info.get("type", "temp")
-                    return {
-                        "ok": True,
-                        "filename": img_info["filename"],
-                        "subfolder": img_info.get("subfolder", ""),
-                        "type": img_type,
-                        "model": unet_name,
-                        "prompt_id": prompt_id
-                    }
+    try:
+        resp = requests.post(f"{COMFY_URL}/prompt", json={"prompt": wf, "client_id": client_id}, timeout=10)
+        resp.raise_for_status()
+        prompt_id = resp.json()["prompt_id"]
+        print(f"[ComfyUI] Job gestartet: {prompt_id} (client: {client_id})")
+    except Exception as e:
+        yield {"type": "error", "text": f"ComfyUI nicht erreichbar: {e}"}
+        return
 
-    return {"ok": False, "error": "Timeout — ComfyUI hat nicht rechtzeitig geantwortet"}
+    ws_url = f"ws://127.0.0.1:8188/ws?clientId={client_id}"
+    try:
+        ws = websocket.create_connection(ws_url, timeout=300)
+        print(f"[ComfyUI] WebSocket verbunden")
+    except Exception as e:
+        yield {"type": "error", "text": f"WebSocket fehlgeschlagen: {e}"}
+        return
+
+    try:
+        while True:
+            msg = ws.recv()
+
+            # Binär = Preview-JPEG vom VAE Taesd-Decoder
+            # Header: 4 Bytes event_type (big-endian) + 4 Bytes format + Bilddaten
+            if isinstance(msg, bytes):
+                if len(msg) > 8:
+                    event_type = struct.unpack_from(">I", msg, 0)[0]
+                    if event_type == 1:  # PREVIEW_IMAGE
+                        b64 = base64.b64encode(msg[8:]).decode("utf-8")
+                        print(f"[ComfyUI] Preview frame: {len(msg)} bytes")
+                        yield {"type": "image_preview", "b64": b64}
+                continue
+
+            try:
+                data = json.loads(msg)
+            except Exception:
+                continue
+
+            msg_type = data.get("type", "")
+
+            if msg_type == "progress":
+                val = data["data"].get("value", 0)
+                max_val = data["data"].get("max", 1)
+                pct = int(val / max_val * 100) if max_val else 0
+                print(f"[ComfyUI] Progress: {val}/{max_val} ({pct}%)")
+                yield {"type": "image_progress", "value": val, "max": max_val, "pct": pct}
+
+            elif msg_type == "execution_success":
+                if data["data"].get("prompt_id") == prompt_id:
+                    print(f"[ComfyUI] Fertig: {prompt_id}")
+                    try:
+                        hist = requests.get(f"{COMFY_URL}/history/{prompt_id}", timeout=10).json()
+                        outputs = hist.get(prompt_id, {}).get("outputs", {})
+                        for node_out in outputs.values():
+                            for img_info in node_out.get("images", []):
+                                img_resp = requests.get(f"{COMFY_URL}/view", params={
+                                    "filename": img_info["filename"],
+                                    "type": img_info.get("type", "temp"),
+                                    "subfolder": img_info.get("subfolder", "")
+                                }, timeout=15)
+                                img_resp.raise_for_status()
+                                img_bytes = img_resp.content
+                                yield {
+                                    "type": "image_final",
+                                    "b64": base64.b64encode(img_bytes).decode("utf-8"),
+                                    "filename": img_info["filename"],
+                                    "model": unet_name,
+                                    "img_bytes": img_bytes
+                                }
+                                return
+                    except Exception as e:
+                        yield {"type": "error", "text": f"Finales Bild laden fehlgeschlagen: {e}"}
+                        return
+
+            elif msg_type == "execution_error":
+                if data["data"].get("prompt_id") == prompt_id:
+                    yield {"type": "error", "text": data["data"].get("exception_message", "ComfyUI Fehler")}
+                    return
+
+    except Exception as e:
+        yield {"type": "error", "text": f"WebSocket Fehler: {e}"}
+    finally:
+        try:
+            ws.close()
+        except Exception:
+            pass
 
 
 @app.route("/api/comfy/generate", methods=["POST"])
@@ -1510,7 +1605,7 @@ def api_comfy_generate():
         if not models:
             yield "data: " + json.dumps({"type": "step", "text": "⚠️ Keine Modelle gefunden, nutze Standard", "status": "done"}) + "\n\n"
         else:
-            short_name = models[0].split("\\")[-1].split("/")[-1]
+            short_name = models[1].split("\\")[-1].split("/")[-1]
             yield "data: " + json.dumps({"type": "step", "text": f"🤖 Modell: {short_name}", "status": "done"}) + "\n\n"
 
         yield "data: " + json.dumps({"type": "step", "text": "🖼️ Generiere Bild...", "status": "active"}) + "\n\n"
