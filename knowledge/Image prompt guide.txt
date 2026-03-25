@@ -1,0 +1,120 @@
+# IMAGE GENERATION PROMPT GUIDE
+# For Anima / Illustrious XL / Z-Image
+# ALWAYS follow these rules when action="generate_image"
+
+## FORMAT
+Always use comma-separated Danbooru tags. NO prose or sentences.
+Order: Quality tags → Subject → Details → Scene → Lighting/Style
+
+---
+
+## ANIMA (current model: anima-preview.safetensors)
+
+Positive quality tags (always prepend):
+  masterpiece, best quality, score_7, very aesthetic, absurdres
+
+Negative tags (always include):
+  worst quality, low quality, score_1, score_2, score_3, lowres, bad anatomy,
+  bad hands, text, error, missing fingers, extra digit, jpeg artifacts,
+  signature, watermark, blurry, deformed
+
+Anima-specific notes:
+  - "very aesthetic" and "absurdres" are highly effective for this model
+  - Do NOT use score_8_up / score_9 tags (those are Illustrious-style)
+  - Works great for anime characters, fantasy scenes, action compositions
+
+## ILLUSTRIOUS XL
+
+Positive quality tags:
+  score_9, score_8_up, score_7_up, score_6_up, masterpiece, best quality
+
+Negative tags:
+  score_1, score_2, score_3, score_4, worst quality, bad quality,
+  low quality, lowres, normal quality, bad anatomy, bad hands
+
+## Z-IMAGE
+
+Positive quality tags:
+  masterpiece, best quality, high quality, ultra detailed, sharp focus
+
+Negative tags:
+  worst quality, low quality, normal quality, lowres, bad anatomy,
+  bad hands, text, watermark, signature, ugly, poorly drawn, deformed
+
+---
+
+## SUBJECT TAGS
+
+Character count:  1girl / 1boy / 2girls / multiple girls / duo / group
+Hair:             blonde hair, silver hair, crimson hair, long hair, short hair,
+                  twintails, ahoge, wavy hair, wild hair, flowing hair, ponytail
+Eyes:             blue eyes, red eyes, amber eyes, glowing eyes, heterochromia
+Body:             slim, athletic, tall, petite, muscular
+Clothing:         school uniform, armor, fantasy armor, obsidian armor, dress,
+                  hoodie, suit, kimono, bodysuit, torn clothing, battle damage
+Pose:             standing, sitting, action pose, battle stance, kneeling,
+                  dynamic angle, dutch angle, motion blur
+Expression:       smile, smirk, serious, angry, focused, roaring, aggressive
+
+---
+
+## SCENE / BACKGROUND
+
+Nature:    outdoors, forest, beach, mountain, volcano, cliff, ocean
+Urban:     city, rooftop, alley, neon lights, cyberpunk city
+Fantasy:   ruins, ruined fortress, dungeon, magical forest, floating islands
+Other:     indoors, classroom, bedroom, library, battlefield, ashstorm, dark sky
+
+---
+
+## LIGHTING / ATMOSPHERE
+
+Lighting:    soft lighting, dramatic lighting, golden hour, rim lighting,
+             cinematic lighting, high contrast, backlight, moonlight
+Atmosphere:  dark fantasy, grimdark, sci-fi, warm colors, cold colors,
+             heat distortion, smoke, embers, fire particles, glowing
+Depth:       depth of field, bokeh, motion blur, sharp focus
+
+---
+
+## STYLE TAGS
+
+anime style, manga style, painterly, dark fantasy, science fiction,
+cinematic composition, epic, ultra detailed, highly detailed,
+@jima, @fkey  <- effective artist tags for Anima
+
+---
+
+## ASPECT RATIO
+
+Portrait (character focus):   "3:4 (Golden Ratio)"   <- default
+Square (scenes/icons):        "1:1"
+Landscape (environment):      "4:3" or "16:9"
+Tall portrait (action):       "9:16"
+
+---
+
+## GOOD PROMPT EXAMPLE (Anima)
+
+masterpiece, best quality, score_7, very aesthetic, absurdres,
+1girl, solo, long blonde hair, blue eyes, light smile,
+fantasy armor, glowing runes, sword,
+forest clearing, moonlight, rim lighting, bokeh,
+dynamic angle, detailed face, ultra detailed
+
+Negative:
+worst quality, low quality, score_1, score_2, score_3,
+blurry, bad anatomy, bad hands, missing fingers,
+extra limbs, deformed, watermark, text, jpeg artifacts
+
+---
+
+## RULES
+
+- Minimum 25-35 tags per prompt
+- No duplicate or near-duplicate tags
+- Specific > vague: "crimson hair" not "red hair", "amber eyes" not "yellow eyes"
+- Most important tags first
+- Attention weights: use sparingly -- (tag:1.2) for emphasis, max (tag:1.4)
+- Always generate a matching negative prompt
+- Pick aspect ratio based on subject: characters -> portrait, scenes -> landscape

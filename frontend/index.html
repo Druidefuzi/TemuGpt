@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Office Assistant</title>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/atom-one-dark.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+    <link rel="stylesheet" href="frontend/style.css">
+</head>
+<body>
+
+<header>
+    <div class="logo">🤖</div>
+    <h1>Office Assistant</h1>
+    <div class="status-dot"></div>
+    <div class="active-model-badge" id="active-model-badge">
+        <span class="active-model-dot"></span>
+        <span id="active-model-name">Lade...</span>
+    </div>
+    <span>localhost:1234</span>
+</header>
+
+<div class="main">
+
+    <aside class="sidebar">
+
+        <!-- Schnellaktionen -->
+        <div class="accordion">
+            <button class="accordion-header open" onclick="toggleAccordion(this)">
+                <span>⚡ Schnellaktionen</span>
+                <span class="accordion-arrow">▾</span>
+            </button>
+            <div class="accordion-body">
+                <button class="quick-btn" onclick="quickAction('Erstelle einen professionellen Bericht')"><span class="icon">📄</span> Bericht erstellen</button>
+                <button class="quick-btn" onclick="quickAction('Schreibe ein formelles Anschreiben')"><span class="icon">✉️</span> Anschreiben</button>
+                <button class="quick-btn" onclick="quickAction('Erstelle eine Excel-Tabelle')"><span class="icon">📊</span> Excel Tabelle</button>
+                <button class="quick-btn" onclick="quickAction('Erstelle ein Meeting-Protokoll für heute')"><span class="icon">📋</span> Protokoll</button>
+                <button class="quick-btn" onclick="quickAction('Erstelle eine Rechnung')"><span class="icon">🧾</span> Rechnung</button>
+                <button class="quick-btn" onclick="quickAction('Schreibe eine E-Mail')"><span class="icon">📧</span> E-Mail</button>
+            </div>
+        </div>
+
+        <!-- Einstellungen -->
+        <div class="accordion">
+            <button class="accordion-header open" onclick="toggleAccordion(this)">
+                <span>⚙️ Einstellungen</span>
+                <span class="accordion-arrow">▾</span>
+            </button>
+            <div class="accordion-body">
+                <button class="quick-btn" onclick="newChat()"><span class="icon">🗑️</span> Neuer Chat</button>
+                <button class="think-toggle-btn active" id="think-toggle-btn" onclick="toggleThinkMode()">
+                    <span class="toggle-dot"></span>
+                    <span id="think-toggle-label">🧠 Fake-Think: AN</span>
+                </button>
+                <button class="think-toggle-btn" id="research-toggle-btn" onclick="toggleResearchMode()">
+                    <span class="toggle-dot"></span>
+                    <span id="research-toggle-label">🔬 Research: AUS</span>
+                </button>
+                <div class="research-settings" id="research-settings">
+                    <div>
+                        <div class="research-setting-row">
+                            <span class="research-setting-label">📋 Ergebnisse</span>
+                            <input type="range" id="research-max-results" min="3" max="15" step="1" value="8"
+                                   oninput="document.getElementById('research-max-results-val').textContent=this.value">
+                            <span class="research-setting-val" id="research-max-results-val">8</span>
+                        </div>
+                        <div class="research-setting-row">
+                            <span class="research-setting-label">🌐 Min. Seiten</span>
+                            <input type="range" id="research-min-pages" min="1" max="8" step="1" value="5"
+                                   oninput="document.getElementById('research-min-pages-val').textContent=this.value">
+                            <span class="research-setting-val" id="research-min-pages-val">5</span>
+                        </div>
+                    </div>
+                </div>
+                <button class="quick-btn" onclick="openSystemPromptModal()"><span class="icon">🧠</span> System Prompt</button>
+            </div>
+        </div>
+
+        <!-- Chats -->
+        <div class="accordion accordion-flex">
+            <div class="accordion-header open" onclick="toggleAccordion(this)">
+                <span>💬 Chats</span>
+                <div style="display:flex;align-items:center;gap:6px;">
+                    <button class="refresh-btn" onclick="event.stopPropagation();newChat()" title="Neuer Chat">＋</button>
+                    <span class="accordion-arrow">▾</span>
+                </div>
+            </div>
+            <div class="accordion-body accordion-scroll" id="chat-history-section">
+                <div class="models-loading">Lade...</div>
+            </div>
+        </div>
+
+        <!-- Knowledge -->
+        <div class="accordion accordion-flex">
+            <div class="accordion-header open" onclick="toggleAccordion(this)">
+                <span>📚 Knowledge</span>
+                <div style="display:flex;align-items:center;gap:6px;">
+                    <button class="refresh-btn" onclick="event.stopPropagation();loadKnowledge()" title="Aktualisieren">↻</button>
+                    <span class="accordion-arrow">▾</span>
+                </div>
+            </div>
+            <div class="accordion-body accordion-scroll" id="knowledge-section">
+                <div class="models-loading">Lade...</div>
+            </div>
+        </div>
+
+        <!-- Modelle -->
+        <div class="accordion accordion-flex">
+            <div class="accordion-header open" onclick="toggleAccordion(this)">
+                <span>🤖 Modelle</span>
+                <div style="display:flex;align-items:center;gap:6px;">
+                    <button class="refresh-btn" onclick="event.stopPropagation();loadModels()" title="Aktualisieren">↻</button>
+                    <span class="accordion-arrow">▾</span>
+                </div>
+            </div>
+            <div class="accordion-body accordion-scroll" id="model-section">
+                <div class="models-loading">Lade Modelle...</div>
+            </div>
+        </div>
+
+    </aside>
+
+    <!-- Chat -->
+    <div class="chat-area">
+        <div class="messages" id="messages">
+            <div class="welcome" id="welcome">
+                <div class="big-icon">✨</div>
+                <h2>Womit kann ich helfen?</h2>
+                <p>Erstelle Word-Dokumente, Excel-Tabellen, Protokolle und mehr — oder lade Dateien hoch die ich analysieren soll.</p>
+            </div>
+        </div>
+        <div id="file-preview"></div>
+        <div class="input-settings">
+            <div class="input-setting">
+                <span class="setting-label">🌡️ Temp</span>
+                <input type="range" id="setting-temp" min="0" max="2" step="0.05" value="0.3"
+                       oninput="document.getElementById('setting-temp-val').textContent=parseFloat(this.value).toFixed(2)">
+                <span class="setting-val" id="setting-temp-val">0.30</span>
+            </div>
+            <div class="input-setting">
+                <span class="setting-label">📐 Context</span>
+                <input type="range" id="setting-ctx" min="512" max="32768" step="512" value="8192"
+                       oninput="document.getElementById('setting-ctx-val').textContent=parseInt(this.value).toLocaleString()">
+                <span class="setting-val" id="setting-ctx-val">8,192</span>
+            </div>
+        </div>
+
+        <div class="input-area">
+            <div class="input-box" id="input-box">
+                <textarea id="msg-input" placeholder="Nachricht schreiben... oder Datei reinziehen" rows="1" onkeydown="handleKey(event)" oninput="autoResize(this)"></textarea>
+                <div class="input-actions">
+                    <button class="attach-btn" onclick="document.getElementById('file-input').click()" title="Datei anhängen">📎</button>
+                    <button class="send-btn" id="send-btn" onclick="sendMessage()">➤</button>
+                </div>
+            </div>
+            <input type="file" id="file-input" multiple accept=".pdf,.docx,.xlsx,.xls,.png,.jpg,.jpeg,.gif,.webp,.txt" onchange="addFiles(this.files)">
+        </div>
+    </div>
+
+</div>
+
+<div class="modal-overlay" id="knowledge-modal">
+    <div class="modal">
+        <div class="modal-header">
+            <span>📄</span>
+            <span id="modal-filename">file.html</span>
+            <button class="modal-close" onclick="closeModal()">×</button>
+        </div>
+        <div class="modal-body">
+            <pre id="modal-content"></pre>
+        </div>
+    </div>
+</div>
+
+
+<div class="modal-overlay" id="system-prompt-modal">
+    <div class="modal modal-large">
+        <div class="modal-header">
+            <span>🧠</span>
+            <span>System Prompt</span>
+            <button class="modal-close" onclick="closeSystemPromptModal()">×</button>
+        </div>
+        <div class="modal-body">
+            <textarea id="system-prompt-textarea" spellcheck="false" placeholder="System Prompt..."></textarea>
+        </div>
+        <div class="modal-footer">
+            <button class="sp-btn sp-reset" onclick="resetSystemPrompt()">↺ Reset</button>
+            <button class="sp-btn sp-save" onclick="saveSystemPrompt()">✓ Speichern</button>
+        </div>
+    </div>
+</div>
+
+<script src="frontend/app.js"></script>
+</body>
+</html>
