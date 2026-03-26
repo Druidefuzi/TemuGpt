@@ -29,6 +29,45 @@ function setImageModelType(type) {
     loadImageModels();
 }
 
+function toggleImageGenPanel() {
+    const panel = document.getElementById('imggen-panel');
+    const btn   = document.getElementById('imggen-toggle-btn');
+    const isOpen = panel.classList.toggle('open');
+    btn.classList.toggle('panel-open', isOpen);
+}
+
+// Klick außerhalb schließt Panel
+document.addEventListener('click', e => {
+    const panel = document.getElementById('imggen-panel');
+    const btn   = document.getElementById('imggen-toggle-btn');
+    if (panel && !panel.contains(e.target) && e.target !== btn) {
+        panel.classList.remove('open');
+        btn.classList.remove('panel-open');
+    }
+});
+
+async function toggleImageGeneration() {
+    const resp = await fetch('/api/image-generation/toggle', { method: 'POST' });
+    const data = await resp.json();
+    updateImageGenBtn(data.enabled);
+}
+
+function updateImageGenBtn(enabled) {
+    const powerBtn  = document.getElementById('imggen-power-btn');
+    const panelBody = document.getElementById('imggen-panel-body');
+    if (powerBtn) {
+        if (enabled) {
+            powerBtn.classList.add('active');
+        } else {
+            powerBtn.classList.remove('active');
+        }
+    }
+    if (panelBody) {
+        panelBody.style.opacity  = enabled ? '1' : '0.4';
+        panelBody.style.pointerEvents = enabled ? '' : 'none';
+    }
+}
+
 function toggleTurbo() {
     imageTurbo = !imageTurbo;
     const btn = document.getElementById('turbo-toggle-btn');
@@ -120,6 +159,8 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
     loadImageModels();
+    // Status vom Server holen
+    fetch('/api/image-generation/status').then(r => r.json()).then(d => updateImageGenBtn(d.enabled));
 });
 
 
@@ -173,9 +214,9 @@ async function saveImageMsgToDB(userMsg, imgJson) {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ messages: [
-            { role: 'user',      content: userMsg    },
-            { role: 'assistant', content: imgContent }
-        ]})
+                { role: 'user',      content: userMsg    },
+                { role: 'assistant', content: imgContent }
+            ]})
     });
     await loadChatHistory();
 }

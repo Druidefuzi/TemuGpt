@@ -3,7 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Office Assistant</title>
+    <title>Temu-GPT</title>
+    <link rel="icon" type="image/png" href="frontend/assets/logo.png">
     <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/atom-one-dark.min.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
@@ -12,24 +13,14 @@
 <body>
 
 <header>
-    <div class="logo">🤖</div>
-    <h1>Office Assistant</h1>
+    <img src="frontend/assets/logo.png" class="logo" alt="Logo">
+    <h1>Temu-GPT</h1>
     <div class="status-dot"></div>
     <div class="active-model-badge" id="active-model-badge">
         <span class="active-model-dot"></span>
         <span id="active-model-name">Lade...</span>
     </div>
-    <div class="img-model-selector" id="img-model-selector">
-        <button class="img-type-btn active" data-type="anima"    onclick="setImageModelType('anima')">🌸 Anima</button>
-        <button class="img-type-btn"        data-type="illustrious" onclick="setImageModelType('illustrious')">🎨 Illustrious</button>
-        <button class="img-type-btn"        data-type="zimage"   onclick="setImageModelType('zimage')">⚡ Z-Image</button>
-        <button class="turbo-toggle-btn" id="turbo-toggle-btn" onclick="toggleTurbo()" title="Turbo: AUS">⚡</button>
-        <button class="raw-prompt-btn" id="raw-prompt-btn" onclick="toggleRawPrompt()" title="Raw Prompt: AUS — KI optimiert den Prompt">✏️</button>
-        <div class="img-model-dropdown-wrap">
-            <input type="text" id="img-model-search" placeholder="Modell suchen..." oninput="filterImageModels()" autocomplete="off">
-            <div class="img-model-list" id="img-model-list"></div>
-        </div>
-    </div>
+
     <span>localhost:1234</span>
 </header>
 
@@ -63,7 +54,7 @@
                 <button class="quick-btn" onclick="newChat()"><span class="icon">🗑️</span> Neuer Chat</button>
                 <button class="think-toggle-btn active" id="think-toggle-btn" onclick="toggleThinkMode()">
                     <span class="toggle-dot"></span>
-                    <span id="think-toggle-label">🧠 Fake-Think: AN</span>
+                    <span id="think-toggle-label">🧠 Reasoning: AN</span>
                 </button>
                 <button class="think-toggle-btn" id="research-toggle-btn" onclick="toggleResearchMode()">
                     <span class="toggle-dot"></span>
@@ -86,6 +77,46 @@
                     </div>
                 </div>
                 <button class="quick-btn" onclick="openSystemPromptModal()"><span class="icon">🧠</span> System Prompt</button>
+                <div class="wf-toggle-row">
+                    <button class="think-toggle-btn" id="custom-wf-toggle-btn" onclick="toggleCustomWorkflow()">
+                        <span class="toggle-dot"></span>
+                        <span id="custom-wf-toggle-label">⚙️ Custom Workflow: AUS</span>
+                    </button>
+                    <a id="custom-wf-link" href="/workflows" target="_blank"
+                       style="display:none"
+                       class="quick-btn" style="text-decoration:none">
+                        <span class="icon">🔗</span> Editor öffnen
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <!-- Bildgenerierung -->
+        <div class="accordion">
+            <button class="accordion-header" onclick="toggleAccordion(this)">
+                <span>🖼️ Bildgenerierung</span>
+                <span class="accordion-arrow">▾</span>
+            </button>
+            <div class="imggen-power-row accordion-power-row">
+                <span class="imggen-power-label">Aktiv</span>
+                <button class="imggen-power-btn active" id="imggen-power-btn" onclick="toggleImageGeneration()">●</button>
+            </div>
+            <div class="accordion-body" id="imggen-panel-body">
+                <div class="imggen-section-label">Modell-Typ</div>
+                <div class="imggen-type-row">
+                    <button class="img-type-btn active" data-type="anima"       onclick="setImageModelType('anima')">🌸 Anima</button>
+                    <button class="img-type-btn"        data-type="illustrious" onclick="setImageModelType('illustrious')">🎨 Illustrious</button>
+                    <button class="img-type-btn"        data-type="zimage"      onclick="setImageModelType('zimage')">⚡ Z-Image</button>
+                </div>
+                <div class="imggen-section-label">Modell</div>
+                <div class="img-model-dropdown-wrap">
+                    <input type="text" id="img-model-search" placeholder="Modell suchen..." oninput="filterImageModels()" autocomplete="off">
+                    <div class="img-model-list" id="img-model-list"></div>
+                </div>
+                <div class="imggen-toggles-row">
+                    <button class="imggen-option-btn" id="turbo-toggle-btn" onclick="toggleTurbo()">⚡ Turbo</button>
+                    <button class="imggen-option-btn" id="raw-prompt-btn"   onclick="toggleRawPrompt()">✏️ Raw Prompt</button>
+                </div>
             </div>
         </div>
 
@@ -208,5 +239,32 @@
 <script src="frontend/models.js"></script>
 <script src="frontend/chat.js"></script>
 <script src="frontend/app.js"></script>
+<script>
+    // ── Custom Workflow Toggle ────────────────────────────────────────────────────
+    let customWorkflowEnabled = localStorage.getItem('customWorkflow') === 'true';
+
+    function applyCustomWorkflowState() {
+        const btn  = document.getElementById('custom-wf-toggle-btn');
+        const link = document.getElementById('custom-wf-link');
+        const label = document.getElementById('custom-wf-toggle-label');
+        if (customWorkflowEnabled) {
+            btn.classList.add('active');
+            label.textContent = '⚙️ Custom Workflow: AN';
+            link.style.display = '';
+        } else {
+            btn.classList.remove('active');
+            label.textContent = '⚙️ Custom Workflow: AUS';
+            link.style.display = 'none';
+        }
+    }
+
+    function toggleCustomWorkflow() {
+        customWorkflowEnabled = !customWorkflowEnabled;
+        localStorage.setItem('customWorkflow', customWorkflowEnabled);
+        applyCustomWorkflowState();
+    }
+
+    document.addEventListener('DOMContentLoaded', applyCustomWorkflowState);
+</script>
 </body>
 </html>

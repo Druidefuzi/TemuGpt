@@ -172,6 +172,25 @@ async function handleSmartStream(resp, msgText, thinkId = null) {
     let buffer     = "";
     let stepsDiv   = null;
     let sourcesDiv = null;
+    let reasoningBuf = "";
+    let reasoningEl  = null;
+
+    function getOrCreateReasoning() {
+        if (!reasoningEl && typeof showReasoning !== 'undefined' && showReasoning) {
+            reasoningEl = document.createElement('div');
+            reasoningEl.className = 'reasoning-block';
+            const id = 'reasoning-' + Date.now();
+            reasoningEl.innerHTML = `
+                <button class="reasoning-toggle" onclick="this.classList.toggle('open');document.getElementById('${id}').classList.toggle('visible')">
+                    <span>🧠 Reasoning</span><span class="reasoning-arrow">▾</span>
+                </button>
+                <div class="reasoning-body" id="${id}">
+                    <pre class="reasoning-text"></pre>
+                </div>`;
+            bubble.insertBefore(reasoningEl, streamContent);
+        }
+        return reasoningEl;
+    }
 
     function getOrCreateSteps() {
         if (!stepsDiv) {
@@ -230,6 +249,14 @@ async function handleSmartStream(resp, msgText, thinkId = null) {
 
                 if (json.type === "step") {
                     addStep(json.text, json.status || 'active');
+                }
+                else if (json.type === "reasoning") {
+                    // Reasoning-Text akkumulieren
+                    reasoningBuf += json.text;
+                    if (!reasoningEl) reasoningEl = getOrCreateReasoning();
+                    if (reasoningEl) {
+                        reasoningEl.querySelector('.reasoning-text').textContent = reasoningBuf;
+                    }
                 }
                 else if (json.type === "source") {
                     addSource(json.title, json.host, json.url);

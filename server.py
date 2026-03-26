@@ -30,11 +30,14 @@ LM_API = "http://localhost:1234"
 COMFY_URL = "http://127.0.0.1:8188"
 KNOWLEDGE_DIR = Path(__file__).parent / "knowledge"
 KNOWLEDGE_DIR.mkdir(exist_ok=True)
+WORKFLOWS_DIR = Path(__file__).parent / "workflows"
+WORKFLOWS_DIR.mkdir(exist_ok=True)
 DB_PATH = Path(__file__).parent / "chats.db"
 
 active_model = {"name": MODEL}
 thinking_enabled = True
 research_enabled = False
+image_generation_enabled = True   # Wenn False: kein generate_image im System/Intent-Prompt
 custom_system_prompt = None  # None = default SYSTEM_PROMPT wird genutzt
 
 # ─── DATABASE ─────────────────────────────────────────────────────────────────
@@ -601,6 +604,16 @@ def build_messages(message=None, history=None, files=None):
     """Baut die messages-Liste für den LLM-Call zusammen."""
     knowledge = read_knowledge()
     system = custom_system_prompt if custom_system_prompt is not None else SYSTEM_PROMPT
+    # REGEL 4 (Bildgenerierung) entfernen wenn deaktiviert
+    if not image_generation_enabled and custom_system_prompt is None:
+        system = re.sub(
+            r"REGEL 4.*?Mindestens 20-30 Tags\.\n\n",
+            "",
+            system,
+            flags=re.DOTALL
+        )
+        # REGEL 5 → REGEL 4 umnummerieren
+        system = system.replace("REGEL 5 -", "REGEL 4 -")
     if knowledge:
         system += f"\n\n--- DEIN KNOWLEDGE-ORDNER (aktueller Inhalt) ---\n{knowledge}\n--- ENDE KNOWLEDGE ---"
 
@@ -644,11 +657,6 @@ def chat():
 
     messages = build_messages(message=message, history=history, files=files)
 
-    # Thinking (optional)
-    thinking = None
-    if thinking_enabled and message and len(message) > 15:
-        thinking = think(message, history)
-
     try:
         llm_text, llm_reasoning = call_llm(messages)
     except requests.exceptions.ConnectionError:
@@ -667,7 +675,6 @@ def chat():
         return jsonify({
             "action": "chat",
             "message": f"{'✅' if ok else '❌'} **{filename}** {'gespeichert' if ok else 'Fehler beim Speichern'} — {msg}",
-            "thinking": thinking,
             "reasoning": llm_reasoning
         })
 
@@ -700,7 +707,6 @@ def chat():
                 "message": f"✅ **{parsed.get('titel', filename)}** wurde erstellt!",
                 "filename": filename,
                 "download_url": f"/download/{filename}",
-                "thinking": thinking,
                 "reasoning": llm_reasoning
             })
         except Exception as e:
@@ -709,7 +715,6 @@ def chat():
     return jsonify({
         "action": "chat",
         "message": parsed.get("message", llm_text),
-        "thinking": thinking,
         "reasoning": llm_reasoning
     })
 
@@ -997,8 +1002,13 @@ def _detect_intent(messages):
 
     context = f"Bisheriger Gesprächsverlauf:\n{history_text}\n" if history_text else ""
 
+    # generate_image aus Intent-Prompt entfernen wenn deaktiviert
+    active_intent_prompt = INTENT_PROMPT
+    if not image_generation_enabled:
+        active_intent_prompt = re.sub(r'- "generate_image".*?\n', "", active_intent_prompt)
+
     intent_messages = [
-        {"role": "system", "content": INTENT_PROMPT},
+        {"role": "system", "content": active_intent_prompt},
         {"role": "user", "content": f"{context}Aktuelle Nachricht: {last_user}"}
     ]
     try:
@@ -1071,55 +1081,6 @@ def _stream_generator(messages, temperature=0.3, context_length=None):
         yield "data: " + json.dumps({"type": "error", "text": "LM Studio nicht erreichbar!"}) + "\n\n"
     except Exception as e:
         yield "data: " + json.dumps({"type": "error", "text": str(e)}) + "\n\n"
-
-
-@app.route("/stream-think", methods=["POST"])
-def stream_think():
-    """Streamt den Fake-Think Prozess als SSE."""
-    data = request.json
-    message = data.get("message", "")
-
-    if not thinking_enabled or not message or len(message) <= 15:
-        return Response("data: " + '{"type": "skip"}' + "\n\n", mimetype="text/event-stream")
-
-    think_messages = [
-        {"role": "system", "content": THINKING_PROMPT},
-        {"role": "user", "content": f"Analysiere diese Anfrage: {message}"}
-    ]
-
-    def generate():
-        try:
-            resp = requests.post(LM_STUDIO_URL, json={
-                "model": active_model["name"],
-                "messages": think_messages,
-                "temperature": 0.2,
-                "max_tokens": 1024,
-                "stream": True
-            }, stream=True, timeout=120)
-            resp.raise_for_status()
-
-            full = ""
-            for line in resp.iter_lines():
-                if not line: continue
-                line = line.decode("utf-8")
-                if line.startswith("data: "): line = line[6:]
-                if line == "[DONE]":
-                    parsed = parse_json_response(full)
-                    yield "data: " + json.dumps({"type": "think_done", "parsed": parsed}) + "\n\n"
-                    break
-                try:
-                    chunk = json.loads(line)
-                    delta = chunk["choices"][0].get("delta", {})
-                    if delta.get("content"):
-                        full += delta["content"]
-                        yield "data: " + json.dumps({"type": "think_token", "text": delta["content"]}) + "\n\n"
-                except (json.JSONDecodeError, KeyError, IndexError):
-                    continue
-        except Exception as e:
-            yield "data: " + json.dumps({"type": "error", "text": str(e)}) + "\n\n"
-
-    return Response(stream_with_context(generate()), mimetype="text/event-stream",
-                    headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
 
 
 @app.route("/api/models", methods=["GET"])
@@ -1214,6 +1175,7 @@ def unload_model():
 
 @app.route("/api/thinking/toggle", methods=["POST"])
 def toggle_thinking():
+    # Jetzt: UI-Toggle für Reasoning-Anzeige (kein serverseitiger Effekt mehr)
     global thinking_enabled
     thinking_enabled = not thinking_enabled
     return jsonify({"enabled": thinking_enabled})
@@ -1235,6 +1197,19 @@ def toggle_research():
 @app.route("/api/research/status", methods=["GET"])
 def research_status():
     return jsonify({"enabled": research_enabled})
+
+
+@app.route("/api/image-generation/toggle", methods=["POST"])
+def toggle_image_generation():
+    global image_generation_enabled
+    image_generation_enabled = not image_generation_enabled
+    print(f"[ImageGen] {'AN' if image_generation_enabled else 'AUS'}")
+    return jsonify({"enabled": image_generation_enabled})
+
+
+@app.route("/api/image-generation/status", methods=["GET"])
+def image_generation_status():
+    return jsonify({"enabled": image_generation_enabled})
 
 
 @app.route("/api/knowledge", methods=["GET"])
@@ -1619,6 +1594,87 @@ def api_comfy_image_models():
     models = comfy_get_models_by_type(model_type)
     return jsonify({"models": models, "type": model_type})
 
+
+
+
+# ─── WORKFLOW EDITOR ROUTES ───────────────────────────────────────────────────
+
+@app.route("/workflows")
+def workflows_page():
+    return send_from_directory("frontend", "workflows.html")
+
+
+@app.route("/api/workflows", methods=["GET"])
+def list_workflows():
+    files = sorted(WORKFLOWS_DIR.glob("*.json"))
+    result = []
+    for f in files:
+        try:
+            wf = json.loads(f.read_text(encoding="utf-8"))
+            result.append({
+                "name":         f.name,
+                "display_name": f.stem.replace("_", " "),
+                "node_count":   len(wf),
+            })
+        except Exception:
+            pass
+    return jsonify({"workflows": result})
+
+
+@app.route("/api/workflows/<path:name>", methods=["GET"])
+def get_workflow(name):
+    if not name.endswith(".json") or "/" in name or "\\" in name:
+        return jsonify({"error": "Ungültiger Name"}), 400
+    path = WORKFLOWS_DIR / name
+    if not path.exists():
+        return jsonify({"error": "Nicht gefunden"}), 404
+    return jsonify({"workflow": json.loads(path.read_text(encoding="utf-8"))})
+
+
+@app.route("/api/workflows/prompt-suggest", methods=["POST"])
+def workflow_prompt_suggest():
+    data = request.get_json()
+    user_msg = data.get("message", "")
+    if not user_msg:
+        return jsonify({"error": "Keine Eingabe"}), 400
+    result = generate_danbooru_prompt(user_msg)
+    return jsonify({"prompt": result.get("prompt", ""), "negative_prompt": result.get("negative_prompt", "")})
+
+
+@app.route("/api/workflows/run", methods=["POST"])
+def run_custom_workflow():
+    data = request.get_json()
+    if not data or "workflow" not in data:
+        return jsonify({"error": "Kein Workflow übergeben"}), 400
+
+    def run_generator():
+        yield "data: " + json.dumps({"type": "step", "text": "⚙️ Workflow wird gestartet...", "status": "active"}) + "\n\n"
+        for event in comfy_generate_stream(data["workflow"]):
+            etype = event.get("type")
+            if etype == "image_preview":
+                yield "data: " + json.dumps({"type": "image_preview", "b64": event["b64"]}) + "\n\n"
+            elif etype == "image_progress":
+                yield "data: " + json.dumps({"type": "image_progress", "value": event["value"], "max": event["max"], "pct": event["pct"]}) + "\n\n"
+            elif etype == "image_final":
+                try:
+                    ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+                    save_path = EXPORT_IMG_DIR / f"{ts}_{event['filename']}"
+                    save_path.write_bytes(event["img_bytes"])
+                except Exception as se:
+                    print(f"[WorkflowRun] Speichern fehlgeschlagen: {se}")
+                yield "data: " + json.dumps({
+                    "type":      "image_done",
+                    "image_b64": event["b64"],
+                    "filename":  event["filename"],
+                }) + "\n\n"
+                return
+            elif etype == "error":
+                yield "data: " + json.dumps({"type": "step", "text": f"❌ {event.get('text')}", "status": "error"}) + "\n\n"
+                yield "data: " + json.dumps({"type": "done"}) + "\n\n"
+                return
+
+    return Response(stream_with_context(run_generator()), mimetype="text/event-stream",
+                    headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
 
 
 if __name__ == "__main__":

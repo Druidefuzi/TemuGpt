@@ -104,11 +104,17 @@ async function setActive(id) {
     await loadModels();
 }
 
-// ── THINK MODE ──
+// ── REASONING TOGGLE (clientseitig) ──
+let showReasoning = localStorage.getItem('showReasoning') !== 'false'; // default: AN
+
+document.addEventListener('DOMContentLoaded', () => updateThinkBtn(showReasoning));
+
 async function toggleThinkMode() {
-    const resp = await fetch('/api/thinking/toggle', { method: 'POST' });
-    const data = await resp.json();
-    updateThinkBtn(data.enabled);
+    showReasoning = !showReasoning;
+    localStorage.setItem('showReasoning', showReasoning);
+    updateThinkBtn(showReasoning);
+    // Server-Sync (optional, für Statusabfrage bei Init)
+    await fetch('/api/thinking/toggle', { method: 'POST' });
 }
 
 function updateThinkBtn(enabled) {
@@ -116,10 +122,10 @@ function updateThinkBtn(enabled) {
     const label = document.getElementById('think-toggle-label');
     if (enabled) {
         btn.classList.add('active');
-        label.textContent = '🧠 Fake-Think: AN';
+        label.textContent = '🧠 Reasoning: AN';
     } else {
         btn.classList.remove('active');
-        label.textContent = '🧠 Fake-Think: AUS';
+        label.textContent = '🧠 Reasoning: AUS';
     }
 }
 
