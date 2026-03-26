@@ -16,6 +16,7 @@ import tempfile
 import sqlite3
 from datetime import datetime
 from pathlib import Path
+from workflows import build_workflow
 
 app = Flask(__name__, static_folder="frontend")
 LM_STUDIO_URL = "http://localhost:1234/v1/chat/completions"
@@ -853,52 +854,71 @@ def smart_chat():
 
     # Phase 2e: Bild generieren → SSE via ComfyUI
     if action == "generate_image":
-        img_prompt = intent.get("prompt", message)
+        img_prompt    = intent.get("prompt", message)
         negative_prompt = intent.get("negative_prompt", "worst quality, low quality, score_1, score_2, blurry, jpeg artifacts")
-        aspect_ratio = intent.get("aspect_ratio", "3:4 (Golden Ratio)")
+        aspect_ratio  = intent.get("aspect_ratio", "3:4 (Golden Ratio)")
+        # Vom Frontend mitgegebener Typ + Modell
+        img_model_type = data.get("image_model_type", "anima")
+        img_model_name = data.get("image_model_name", "")
+        img_turbo      = bool(data.get("image_turbo", False))
+
+        img_raw_prompt = bool(data.get("image_raw_prompt", False))
 
         def img_generator():
-            yield "data: " + json.dumps({"type": "step", "text": "🏷️ Generiere Danbooru-Prompt...", "status": "active"}) + "\n\n"
-            danbooru = generate_danbooru_prompt(message)
-            final_prompt = danbooru.get("prompt", img_prompt)
-            final_negative = danbooru.get("negative_prompt", negative_prompt)
-            final_ratio = danbooru.get("aspect_ratio", aspect_ratio)
-            yield "data: " + json.dumps({"type": "step", "text": f"✏️ {final_prompt[:80]}{'…' if len(final_prompt) > 80 else ''}", "status": "done"}) + "\n\n"
-            yield "data: " + json.dumps({"type": "step", "text": "🎨 Verbinde mit ComfyUI...", "status": "active"}) + "\n\n"
-            models = comfy_get_models()
-            if not models:
-                yield "data: " + json.dumps({"type": "step", "text": "⚠️ Keine Modelle — nutze Standard", "status": "done"}) + "\n\n"
+            if img_raw_prompt:
+                # Direkt den User-Prompt verwenden, kein Danbooru-Call
+                final_prompt   = img_prompt
+                final_negative = negative_prompt
+                final_ratio    = aspect_ratio
+                yield "data: " + json.dumps({"type": "step", "text": f"✏️ Raw: {final_prompt[:80]}{'…' if len(final_prompt) > 80 else ''}", "status": "done"}) + "\n\n"
             else:
-                short_name = models[1].split("\\")[-1].split("/")[-1]
-                yield "data: " + json.dumps({"type": "step", "text": f"🤖 Modell: {short_name}", "status": "done"}) + "\n\n"
+                yield "data: " + json.dumps({"type": "step", "text": "🏷️ Generiere Danbooru-Prompt...", "status": "active"}) + "\n\n"
+                danbooru = generate_danbooru_prompt(message)
+                final_prompt   = danbooru.get("prompt", img_prompt)
+                final_negative = danbooru.get("negative_prompt", negative_prompt)
+                final_ratio    = danbooru.get("aspect_ratio", aspect_ratio)
+                yield "data: " + json.dumps({"type": "step", "text": f"✏️ {final_prompt[:80]}{'…' if len(final_prompt) > 80 else ''}", "status": "done"}) + "\n\n"
 
-            # LLM aus VRAM entladen um Platz für Anima freizugeben
+            # Modell auswählen
+            model_name = img_model_name
+            if not model_name:
+                available = comfy_get_models_by_type(img_model_type)
+                model_name = available[0] if available else ""
+            short_name = model_name.split("\\")[-1].split("/")[-1]
+            turbo_tag  = " ⚡Turbo" if img_turbo else ""
+            type_label = {"anima": "🌸 Anima", "illustrious": "🎨 Illustrious", "zimage": "⚡ Z-Image"}.get(img_model_type, img_model_type) + turbo_tag
+            yield "data: " + json.dumps({"type": "step", "text": f"{type_label} · {short_name}", "status": "done"}) + "\n\n"
+
+            # LLM entladen
             try:
                 instance_id = active_model["name"]
                 unload_resp = requests.post(f"{LM_API}/api/v1/models/unload", json={"instance_id": instance_id}, timeout=10)
                 if unload_resp.ok:
-                    print(f"[Image] LLM '{instance_id}' entladen — VRAM frei für ComfyUI")
+                    print(f"[Image] LLM '{instance_id}' entladen")
                     yield "data: " + json.dumps({"type": "step", "text": "🧹 LLM entladen (VRAM frei)", "status": "done"}) + "\n\n"
-                else:
-                    print(f"[Image] Entladen fehlgeschlagen: {unload_resp.text}")
             except Exception as ue:
                 print(f"[Image] Entladen fehlgeschlagen: {ue}")
 
             yield "data: " + json.dumps({"type": "step", "text": "🖼️ Generiere Bild...", "status": "active"}) + "\n\n"
 
-            for event in comfy_generate_stream(final_prompt, final_ratio, final_negative):
+            # Workflow bauen
+            try:
+                workflow = build_workflow(img_model_type, final_prompt, final_negative, final_ratio, model_name, turbo=img_turbo)
+            except Exception as we:
+                yield "data: " + json.dumps({"type": "step", "text": f"❌ Workflow Fehler: {we}", "status": "error"}) + "\n\n"
+                yield "data: " + json.dumps({"type": "done"}) + "\n\n"
+                return
+
+            for event in comfy_generate_stream(workflow, img_model_type):
                 etype = event.get("type")
 
                 if etype == "image_preview":
-                    # Live-Preview direkt durchleiten
                     yield "data: " + json.dumps({"type": "image_preview", "b64": event["b64"]}) + "\n\n"
 
                 elif etype == "image_progress":
                     yield "data: " + json.dumps({
                         "type": "image_progress",
-                        "value": event["value"],
-                        "max": event["max"],
-                        "pct": event["pct"]
+                        "value": event["value"], "max": event["max"], "pct": event["pct"]
                     }) + "\n\n"
 
                 elif etype == "image_final":
@@ -911,13 +931,13 @@ def smart_chat():
                     except Exception as se:
                         print(f"[Image] Speichern fehlgeschlagen: {se}")
 
-                    short_model = event["model"].split("\\")[-1].split("/")[-1]
                     yield "data: " + json.dumps({
-                        "type": "image_done",
-                        "image_b64": event["b64"],
-                        "filename": event["filename"],
-                        "model": short_model,
-                        "prompt": img_prompt
+                        "type":       "image_done",
+                        "image_b64":  event["b64"],
+                        "filename":   event["filename"],
+                        "model":      short_name,
+                        "model_type": img_model_type,
+                        "prompt":     img_prompt
                     }) + "\n\n"
                     return
 
@@ -1375,77 +1395,37 @@ def reset_system_prompt():
     return jsonify({"ok": True, "prompt": SYSTEM_PROMPT})
 
 # ─── COMFYUI IMAGE GENERATION ─────────────────────────────────────────────────
-
-COMFY_WORKFLOW = {
-    "1": {
-        "inputs": {"images": ["8", 0]},
-        "class_type": "PreviewImage"
-    },
-    "8": {
-        "inputs": {"samples": ["19", 0], "vae": ["15", 0]},
-        "class_type": "VAEDecode"
-    },
-    "11": {
-        "inputs": {"text": "", "clip": ["45", 0]},
-        "class_type": "CLIPTextEncode"
-    },
-    "12": {
-        "inputs": {"text": "worst quality, low quality, score_1, score_2, score_3, blurry, jpeg artifacts, sepia", "clip": ["45", 0]},
-        "class_type": "CLIPTextEncode"
-    },
-    "15": {
-        "inputs": {"vae_name": "qwen_image_vae.safetensors"},
-        "class_type": "VAELoader"
-    },
-    "19": {
-        "inputs": {
-            "seed": 416793036172835,
-            "steps": 20,
-            "cfg": 4,
-            "sampler_name": "er_sde",
-            "scheduler": "simple",
-            "denoise": 1,
-            "model": ["44", 0],
-            "positive": ["11", 0],
-            "negative": ["12", 0],
-            "latent_image": ["28", 0]
-        },
-        "class_type": "KSampler"
-    },
-    "28": {
-        "inputs": {"width": 1024, "height": 1024, "batch_size": 1},
-        "class_type": "EmptyLatentImage"
-    },
-    "44": {
-        "inputs": {
-            "unet_name": "Anima\\anima-preview2.safetensors",
-            "weight_dtype": "default"
-        },
-        "class_type": "UNETLoader"
-    },
-    "45": {
-        "inputs": {
-            "clip_name": "qwen_3_06b_base.safetensors",
-            "type": "qwen_image",
-            "device": "default"
-        },
-        "class_type": "CLIPLoader"
-    }
-}
+# Workflows sind ausgelagert in workflows.py
 
 
-def comfy_get_models() -> list:
-    """Holt verfügbare UNET-Modelle von ComfyUI."""
+def comfy_get_models_by_type(model_type: str) -> list:
+    """Holt verfügbare Modelle von ComfyUI gefiltert nach Typ.
+    Gibt immer die vollen Pfade zurück genau so wie ComfyUI sie listet.
+    """
     try:
-        resp = requests.get(f"{COMFY_URL}/object_info/UNETLoader", timeout=5)
-        resp.raise_for_status()
-        info = resp.json()
-        models = info.get("UNETLoader", {}).get("input", {}).get("required", {}).get("unet_name", [None])[0]
-        if isinstance(models, list) and models:
-            return models
+        t = model_type.lower()
+
+        if t == "anima":
+            resp = requests.get(f"{COMFY_URL}/object_info/UNETLoader", timeout=5)
+            resp.raise_for_status()
+            all_models = resp.json().get("UNETLoader", {}).get("input", {}).get("required", {}).get("unet_name", [None])[0] or []
+            return [m for m in all_models if "anima" in m.lower()]
+
+        elif t in ("illustrious", "zimage"):
+            # Alle Checkpoints 1:1 so zurückgeben wie ComfyUI sie listet (voller Pfad)
+            resp = requests.get(f"{COMFY_URL}/object_info/CheckpointLoaderSimple", timeout=5)
+            resp.raise_for_status()
+            all_models = resp.json().get("CheckpointLoaderSimple", {}).get("input", {}).get("required", {}).get("ckpt_name", [None])[0] or []
+            print(f"[ComfyUI] Alle Checkpoints ({len(all_models)}): {all_models[:5]}")
+            return all_models  # Kein Filter — User wählt selbst
+
     except Exception as e:
-        print(f"[ComfyUI] Modelle abrufen fehlgeschlagen: {e}")
+        print(f"[ComfyUI] Modelle abrufen fehlgeschlagen ({model_type}): {e}")
     return []
+
+# Legacy-Alias für alten Code
+def comfy_get_models() -> list:
+    return comfy_get_models_by_type("anima")
 
 
 def generate_danbooru_prompt(user_message: str) -> dict:
@@ -1479,34 +1459,25 @@ def generate_danbooru_prompt(user_message: str) -> dict:
     }
 
 
-def comfy_generate_stream(prompt_text: str, aspect_ratio: str = "3:4 (Golden Ratio)", negative_prompt: str = "worst quality, low quality, score_1, score_2, blurry"):
-    """Generator: Streamt ComfyUI-Previews + Fortschritt via WebSocket.
+def comfy_generate_stream(workflow: dict, model_type: str = "anima"):
+    """Generator: Sendet Workflow an ComfyUI, streamt Previews + Progress via WebSocket.
     Yieldet dicts: image_preview | image_progress | image_final | error
     """
-    import copy, random, struct
+    import struct
     try:
         import websocket
     except ImportError:
         yield {"type": "error", "text": "websocket-client nicht installiert: pip install websocket-client"}
         return
 
-    models = comfy_get_models()
-    unet_name = models[1] if models else COMFY_WORKFLOW["44"]["inputs"]["unet_name"]
-    print(f"[ComfyUI] Nutze Modell: {unet_name}")
-
-    wf = copy.deepcopy(COMFY_WORKFLOW)
-    wf["44"]["inputs"]["unet_name"] = unet_name
-    wf["11"]["inputs"]["text"] = prompt_text
-    wf["12"]["inputs"]["text"] = negative_prompt
-    wf["19"]["inputs"]["seed"] = random.randint(0, 2**32 - 1)
-
+    import random
     client_id = f"office-{random.randint(10000, 99999)}"
 
     try:
-        resp = requests.post(f"{COMFY_URL}/prompt", json={"prompt": wf, "client_id": client_id}, timeout=10)
+        resp = requests.post(f"{COMFY_URL}/prompt", json={"prompt": workflow, "client_id": client_id}, timeout=10)
         resp.raise_for_status()
         prompt_id = resp.json()["prompt_id"]
-        print(f"[ComfyUI] Job gestartet: {prompt_id} (client: {client_id})")
+        print(f"[ComfyUI] Job gestartet: {prompt_id} (type={model_type}, client={client_id})")
     except Exception as e:
         yield {"type": "error", "text": f"ComfyUI nicht erreichbar: {e}"}
         return
@@ -1523,15 +1494,12 @@ def comfy_generate_stream(prompt_text: str, aspect_ratio: str = "3:4 (Golden Rat
         while True:
             msg = ws.recv()
 
-            # Binär = Preview-JPEG vom VAE Taesd-Decoder
-            # Header: 4 Bytes event_type (big-endian) + 4 Bytes format + Bilddaten
-            if isinstance(msg, bytes):
-                if len(msg) > 8:
-                    event_type = struct.unpack_from(">I", msg, 0)[0]
-                    if event_type == 1:  # PREVIEW_IMAGE
-                        b64 = base64.b64encode(msg[8:]).decode("utf-8")
-                        print(f"[ComfyUI] Preview frame: {len(msg)} bytes")
-                        yield {"type": "image_preview", "b64": b64}
+            # Binär = Preview-JPEG
+            if isinstance(msg, bytes) and len(msg) > 8:
+                event_type = struct.unpack_from(">I", msg, 0)[0]
+                if event_type == 1:  # PREVIEW_IMAGE
+                    b64 = base64.b64encode(msg[8:]).decode("utf-8")
+                    yield {"type": "image_preview", "b64": b64}
                 continue
 
             try:
@@ -1545,7 +1513,6 @@ def comfy_generate_stream(prompt_text: str, aspect_ratio: str = "3:4 (Golden Rat
                 val = data["data"].get("value", 0)
                 max_val = data["data"].get("max", 1)
                 pct = int(val / max_val * 100) if max_val else 0
-                print(f"[ComfyUI] Progress: {val}/{max_val} ({pct}%)")
                 yield {"type": "image_progress", "value": val, "max": max_val, "pct": pct}
 
             elif msg_type == "execution_success":
@@ -1558,16 +1525,15 @@ def comfy_generate_stream(prompt_text: str, aspect_ratio: str = "3:4 (Golden Rat
                             for img_info in node_out.get("images", []):
                                 img_resp = requests.get(f"{COMFY_URL}/view", params={
                                     "filename": img_info["filename"],
-                                    "type": img_info.get("type", "temp"),
+                                    "type":     img_info.get("type", "output"),
                                     "subfolder": img_info.get("subfolder", "")
                                 }, timeout=15)
                                 img_resp.raise_for_status()
                                 img_bytes = img_resp.content
                                 yield {
-                                    "type": "image_final",
-                                    "b64": base64.b64encode(img_bytes).decode("utf-8"),
-                                    "filename": img_info["filename"],
-                                    "model": unet_name,
+                                    "type":      "image_final",
+                                    "b64":       base64.b64encode(img_bytes).decode("utf-8"),
+                                    "filename":  img_info["filename"],
                                     "img_bytes": img_bytes
                                 }
                                 return
@@ -1605,7 +1571,7 @@ def api_comfy_generate():
         if not models:
             yield "data: " + json.dumps({"type": "step", "text": "⚠️ Keine Modelle gefunden, nutze Standard", "status": "done"}) + "\n\n"
         else:
-            short_name = models[1].split("\\")[-1].split("/")[-1]
+            short_name = models[0].split("\\")[-1].split("/")[-1]
             yield "data: " + json.dumps({"type": "step", "text": f"🤖 Modell: {short_name}", "status": "done"}) + "\n\n"
 
         yield "data: " + json.dumps({"type": "step", "text": "🖼️ Generiere Bild...", "status": "active"}) + "\n\n"
@@ -1644,6 +1610,14 @@ def api_comfy_generate():
 @app.route("/api/comfy/models", methods=["GET"])
 def api_comfy_models():
     return jsonify({"models": comfy_get_models()})
+
+
+@app.route("/api/comfy/image-models", methods=["GET"])
+def api_comfy_image_models():
+    """Gibt verfügbare Modelle gefiltert nach Typ zurück."""
+    model_type = request.args.get("type", "anima")
+    models = comfy_get_models_by_type(model_type)
+    return jsonify({"models": models, "type": model_type})
 
 
 

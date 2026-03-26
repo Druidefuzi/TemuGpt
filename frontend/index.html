@@ -19,6 +19,17 @@
         <span class="active-model-dot"></span>
         <span id="active-model-name">Lade...</span>
     </div>
+    <div class="img-model-selector" id="img-model-selector">
+        <button class="img-type-btn active" data-type="anima"    onclick="setImageModelType('anima')">🌸 Anima</button>
+        <button class="img-type-btn"        data-type="illustrious" onclick="setImageModelType('illustrious')">🎨 Illustrious</button>
+        <button class="img-type-btn"        data-type="zimage"   onclick="setImageModelType('zimage')">⚡ Z-Image</button>
+        <button class="turbo-toggle-btn" id="turbo-toggle-btn" onclick="toggleTurbo()" title="Turbo: AUS">⚡</button>
+        <button class="raw-prompt-btn" id="raw-prompt-btn" onclick="toggleRawPrompt()" title="Raw Prompt: AUS — KI optimiert den Prompt">✏️</button>
+        <div class="img-model-dropdown-wrap">
+            <input type="text" id="img-model-search" placeholder="Modell suchen..." oninput="filterImageModels()" autocomplete="off">
+            <div class="img-model-list" id="img-model-list"></div>
+        </div>
+    </div>
     <span>localhost:1234</span>
 </header>
 

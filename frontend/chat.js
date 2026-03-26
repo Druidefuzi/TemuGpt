@@ -1,6 +1,6 @@
-// ─── CHAT.JS — Senden, Stream-Handler, Datei-Handling, Chat-History/DB ───────
+// ─── CHAT.JS — Senden, Stream, Datei-Handling, Chat-History & DB ─────────────
 
-// ── KEYBOARD ──
+// ── KEYBOARD & QUICK ACTIONS ──
 function handleKey(e) {
     if (e.key === 'Enter' && !e.shiftKey) {
         e.preventDefault();
@@ -8,14 +8,13 @@ function handleKey(e) {
     }
 }
 
-// ── QUICK ACTIONS ──
 function quickAction(text) {
     document.getElementById('msg-input').value = text;
     autoResize(document.getElementById('msg-input'));
     sendMessage();
 }
 
-// ── FILES ──
+// ── FILE HANDLING ──
 function addFiles(fileList) {
     for (const f of fileList) attachedFiles.push(f);
     renderFileChips();
@@ -110,7 +109,7 @@ async function sendMessage() {
 async function smartSend(msgText, history) {
     const thinkId = appendThinking();
 
-    const temperature = parseFloat(document.getElementById('setting-temp')?.value ?? 0.3);
+    const temperature   = parseFloat(document.getElementById('setting-temp')?.value ?? 0.3);
     const contextLength = parseInt(document.getElementById('setting-ctx')?.value ?? 8192);
 
     const resp = await fetch('/smart_chat', {
@@ -122,7 +121,11 @@ async function smartSend(msgText, history) {
             temperature,
             context_length: contextLength,
             research_max_results: parseInt(document.getElementById('research-max-results')?.value ?? 8),
-            research_min_pages: parseInt(document.getElementById('research-min-pages')?.value ?? 5)
+            research_min_pages:   parseInt(document.getElementById('research-min-pages')?.value ?? 5),
+            image_model_type: typeof imageModelType !== 'undefined' ? imageModelType : 'anima',
+            image_model_name: typeof imageModelName !== 'undefined' ? imageModelName : '',
+            image_turbo:      typeof imageTurbo      !== 'undefined' ? imageTurbo      : false,
+            image_raw_prompt: typeof imageRawPrompt !== 'undefined' ? imageRawPrompt : false
         })
     });
 
@@ -160,14 +163,14 @@ async function handleSmartStream(resp, msgText, thinkId = null) {
     div.innerHTML = `<div class="avatar">🤖</div><div class="bubble"><div class="stream-content"></div></div>`;
     msgs.appendChild(div);
 
-    const bubble = div.querySelector('.bubble');
+    const bubble        = div.querySelector('.bubble');
     const streamContent = div.querySelector('.stream-content');
-    const reader = resp.body.getReader();
-    const decoder = new TextDecoder();
+    const reader        = resp.body.getReader();
+    const decoder       = new TextDecoder();
 
-    let fullText = "";
-    let buffer = "";
-    let stepsDiv = null;
+    let fullText   = "";
+    let buffer     = "";
+    let stepsDiv   = null;
     let sourcesDiv = null;
 
     function getOrCreateSteps() {
@@ -228,11 +231,9 @@ async function handleSmartStream(resp, msgText, thinkId = null) {
                 if (json.type === "step") {
                     addStep(json.text, json.status || 'active');
                 }
-
                 else if (json.type === "source") {
                     addSource(json.title, json.host, json.url);
                 }
-
                 else if (json.type === "search_done") {
                     if (stepsDiv) stepsDiv.style.display = 'none';
                     if (sourcesDiv) bubble.appendChild(sourcesDiv);
@@ -243,7 +244,6 @@ async function handleSmartStream(resp, msgText, thinkId = null) {
                     await saveMsgsToDB(msgText, json.message);
                     msgs.scrollTop = msgs.scrollHeight;
                 }
-
                 else if (json.type === "document_done") {
                     if (stepsDiv) stepsDiv.remove();
                     streamContent.remove();
@@ -252,7 +252,6 @@ async function handleSmartStream(resp, msgText, thinkId = null) {
                     history.push({ role: 'assistant', content: json.message });
                     await saveMsgsToDB(msgText, json.message);
                 }
-
                 else if (json.type === "image_preview") {
                     let previewEl = div.querySelector('.comfy-preview');
                     if (!previewEl) {
@@ -264,7 +263,6 @@ async function handleSmartStream(resp, msgText, thinkId = null) {
                     previewEl.src = `data:image/jpeg;base64,${json.b64}`;
                     msgs.scrollTop = msgs.scrollHeight;
                 }
-
                 else if (json.type === "image_progress") {
                     let progressEl = div.querySelector('.comfy-progress');
                     if (!progressEl) {
@@ -278,7 +276,6 @@ async function handleSmartStream(resp, msgText, thinkId = null) {
                     progressEl.querySelector('span').textContent = `Step ${json.value}/${json.max}`;
                     msgs.scrollTop = msgs.scrollHeight;
                 }
-
                 else if (json.type === "image_done") {
                     if (stepsDiv) stepsDiv.remove();
                     div.querySelector('.comfy-preview')?.remove();
@@ -289,7 +286,6 @@ async function handleSmartStream(resp, msgText, thinkId = null) {
                     history.push({ role: 'assistant', content: `[Bild generiert: ${json.prompt}]` });
                     await saveImageMsgToDB(msgText, json);
                 }
-
                 else if (json.type === "content") {
                     fullText += json.text;
                     const looksLikeJson = fullText.trimStart().startsWith('{');
@@ -300,7 +296,6 @@ async function handleSmartStream(resp, msgText, thinkId = null) {
                         streamContent.innerHTML = '<span class="typing-dots"><span>.</span><span>.</span><span>.</span></span>';
                     }
                 }
-
                 else if (json.type === "done") {
                     let displayText = fullText;
                     try {
@@ -325,7 +320,6 @@ async function handleSmartStream(resp, msgText, thinkId = null) {
                     await saveMsgsToDB(msgText, displayText);
                     msgs.scrollTop = msgs.scrollHeight;
                 }
-
                 else if (json.type === "error") {
                     streamContent.innerHTML = `❌ ${json.text}`;
                 }
@@ -385,7 +379,6 @@ async function loadChat(chatId) {
     const data = await resp.json();
     currentChatId = chatId;
 
-    // History für LLM — Bilder als Platzhalter
     history = data.messages.map(m => {
         if (m.role === 'assistant' && m.content.startsWith('{"__type":"image"')) {
             try {
@@ -402,7 +395,7 @@ async function loadChat(chatId) {
         if (m.role === 'assistant' && m.content.startsWith('{"__type":"image"')) {
             try {
                 const img = JSON.parse(m.content);
-                appendImageMessage({ image_b64: img.b64, model: img.model, prompt: img.prompt, filename: img.filename }, '');
+                appendImageMessage({ image_b64: img.b64, model: img.model, model_type: img.model_type || 'anima', prompt: img.prompt, filename: img.filename }, '');
                 continue;
             } catch(e) {}
         }
@@ -457,8 +450,34 @@ async function saveMsgsToDB(userMsg, assistantMsg) {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ messages: [
-            { role: 'user', content: userMsg },
+            { role: 'user',      content: userMsg      },
             { role: 'assistant', content: assistantMsg }
+        ]})
+    });
+    await loadChatHistory();
+}
+
+async function saveImageMsgToDB(userMsg, imgJson) {
+    if (!currentChatId) {
+        const resp = await fetch('/api/chats', { method: 'POST' });
+        const data = await resp.json();
+        currentChatId = data.id;
+        await loadChatHistory();
+    }
+    const imgContent = JSON.stringify({
+        __type:     'image',
+        b64:        imgJson.image_b64,
+        model:      imgJson.model,
+        model_type: imgJson.model_type || 'anima',
+        prompt:     imgJson.prompt,
+        filename:   imgJson.filename
+    });
+    await fetch(`/api/chats/${currentChatId}/messages`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ messages: [
+            { role: 'user',      content: userMsg    },
+            { role: 'assistant', content: imgContent }
         ]})
     });
     await loadChatHistory();
