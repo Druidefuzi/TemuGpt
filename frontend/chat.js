@@ -120,6 +120,7 @@ async function smartSend(msgText, history) {
             history,
             temperature,
             context_length: contextLength,
+            forced_action:  typeof getForcedAction === 'function' ? getForcedAction() : 'auto',
             research_max_results: parseInt(document.getElementById('research-max-results')?.value ?? 8),
             research_min_pages:   parseInt(document.getElementById('research-min-pages')?.value ?? 5),
             image_model_type: typeof imageModelType !== 'undefined' ? imageModelType : 'anima',

@@ -124,8 +124,15 @@ def think(message: str, history: list) -> dict:
 
 # ─── INTENT DETECTION ─────────────────────────────────────────────────────────
 
-def _detect_intent(messages: list) -> dict:
-    """Schneller Call um nur die Action zu erkennen."""
+def _detect_intent(messages: list, forced_action: str = None) -> dict:
+    """Schneller Call um nur die Action zu erkennen.
+    forced_action überspringt den LLM-Call komplett."""
+
+    # Forced action — direkt zurückgeben ohne LLM-Call
+    if forced_action and forced_action != "auto":
+        print(f"[Intent] Forced: {forced_action}")
+        return {"action": forced_action}
+
     last_user = ""
     for m in reversed(messages):
         if m["role"] == "user":
@@ -144,6 +151,12 @@ def _detect_intent(messages: list) -> dict:
     active_intent_prompt = INTENT_PROMPT
     if not state.image_generation_enabled:
         active_intent_prompt = re.sub(r'- "generate_image".*?\n', "", active_intent_prompt)
+    if not state.search_enabled:
+        active_intent_prompt = re.sub(r'- "search".*?\n', "", active_intent_prompt)
+    if not state.document_enabled:
+        active_intent_prompt = re.sub(r'- "create_document".*?\n', "", active_intent_prompt)
+    if not state.knowledge_enabled:
+        active_intent_prompt = re.sub(r'- "write_knowledge".*?\n', "", active_intent_prompt)
 
     intent_messages = [
         {"role": "system", "content": active_intent_prompt},
@@ -162,6 +175,14 @@ def _detect_intent(messages: list) -> dict:
         text   = re.sub(r'<think>.*?</think>', '', text, flags=re.DOTALL).strip()
         print(f"[Intent] Raw: {text[:200]}")
         parsed = parse_json_response(text)
+
+        # Fallback auf chat wenn erkannte Action deaktiviert ist
+        action = parsed.get("action", "chat")
+        if action == "search"          and not state.search_enabled:   parsed["action"] = "chat"
+        if action == "create_document" and not state.document_enabled:  parsed["action"] = "chat"
+        if action == "write_knowledge" and not state.knowledge_enabled: parsed["action"] = "chat"
+        if action == "generate_image"  and not state.image_generation_enabled: parsed["action"] = "chat"
+
         print(f"[Intent] Action: {parsed.get('action')} | Prompt: {str(parsed.get('prompt',''))[:80]}")
         return parsed
     except Exception as e:

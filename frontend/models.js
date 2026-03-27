@@ -220,3 +220,46 @@ async function resetSystemPrompt() {
     const data = await resp.json();
     document.getElementById('system-prompt-textarea').value = data.prompt;
 }
+
+// ── PERMISSIONS ──
+const PERMISSION_LABELS = {
+    search:    { on: '🔍 Suche: AN',      off: '🔍 Suche: AUS' },
+    document:  { on: '📄 Dokumente: AN',  off: '📄 Dokumente: AUS' },
+    knowledge: { on: '📚 Knowledge: AN',  off: '📚 Knowledge: AUS' },
+    image:     { on: '🖼️ Bilder: AN',     off: '🖼️ Bilder: AUS' },
+};
+
+async function loadPermissions() {
+    try {
+        const resp = await fetch('/api/permissions/status');
+        const data = await resp.json();
+        Object.keys(data).forEach(p => updatePermissionBtn(p, data[p]));
+    } catch(e) {}
+}
+
+async function togglePermission(permission) {
+    const resp = await fetch('/api/permissions/toggle', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ permission })
+    });
+    const data = await resp.json();
+    updatePermissionBtn(permission, data.enabled);
+
+    // Bildgenerierung Panel sync (bestehender Mechanismus)
+    if (permission === 'image') updateImageGenBtn(data.enabled);
+}
+
+function updatePermissionBtn(permission, enabled) {
+    const btn   = document.getElementById(`perm-btn-${permission}`);
+    const label = document.getElementById(`perm-label-${permission}`);
+    if (!btn || !label) return;
+    const def = PERMISSION_LABELS[permission] || { on: 'AN', off: 'AUS' };
+    if (enabled) {
+        btn.classList.add('active');
+        label.textContent = def.on;
+    } else {
+        btn.classList.remove('active');
+        label.textContent = def.off;
+    }
+}

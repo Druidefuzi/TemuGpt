@@ -673,6 +673,27 @@ header span {
     cursor: pointer;
 }
 
+.force-action-setting {
+    flex: 0 0 auto;
+}
+
+.force-action-select {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 11px;
+    padding: 3px 8px;
+    cursor: pointer;
+    outline: none;
+    transition: border-color 0.15s;
+}
+
+.force-action-select:hover  { border-color: var(--accent); }
+.force-action-select:focus  { border-color: var(--accent); }
+.force-action-select option { background: var(--surface2); }
+
 /* ── INPUT AREA ── */
 .input-area {
     padding: 16px 32px 22px;

@@ -213,12 +213,62 @@ def patch_illustrious_turbo(prompt: str, aspect_ratio: str, model_name: str) -> 
     return wf
 
 
-# ── WORKFLOW: Z-IMAGE (Placeholder — wird ergänzt) ───────────────────────────
+# ── WORKFLOW: Z-IMAGE (UNETLoader + CLIPLoaderGGUF + FaceDetailer) ───────────
 
-WORKFLOW_ZIMAGE = {}   # TODO: Workflow einfügen sobald bereit
+WORKFLOW_ZIMAGE = {
+    "3": {
+        "inputs": {
+            "seed": 0, "steps": 8, "cfg": 1,
+            "sampler_name": "euler", "scheduler": "simple", "denoise": 1,
+            "model": ["16", 0], "positive": ["6", 0], "negative": ["7", 0], "latent_image": ["13", 0]
+        },
+        "class_type": "KSampler"
+    },
+    "6":  {"inputs": {"text": "", "clip": ["32", 0]},                        "class_type": "CLIPTextEncode"},
+    "7":  {"inputs": {"text": "", "clip": ["32", 0]},                        "class_type": "CLIPTextEncode"},
+    "8":  {"inputs": {"samples": ["3", 0], "vae": ["17", 0]},               "class_type": "VAEDecode"},
+    "9":  {"inputs": {"filename_prefix": "zimage_", "images": ["40", 0]},   "class_type": "SaveImage"},
+    "13": {"inputs": {"width": 1024, "height": 1024, "batch_size": 1},      "class_type": "EmptySD3LatentImage"},
+    "16": {"inputs": {"unet_name": "ZImageTurbo\\realistic\\novaRealityZI_v15Turbo.safetensors", "weight_dtype": "fp8_e4m3fn"}, "class_type": "UNETLoader"},
+    "17": {"inputs": {"vae_name": "FLUX1\\ae.safetensors"},                  "class_type": "VAELoader"},
+    "32": {"inputs": {"clip_name": "Zimage\\Qwen3-4B-UD-Q4_K_XL.gguf", "type": "lumina2"}, "class_type": "CLIPLoaderGGUF"},
+    "36": {"inputs": {"model_name": "bbox/face_yolov8m.pt"},                 "class_type": "UltralyticsDetectorProvider"},
+    "37": {"inputs": {"model_name": "sam_vit_b_01ec64.pth", "device_mode": "AUTO"}, "class_type": "SAMLoader"},
+    "38": {"inputs": {"text": "", "clip": ["32", 0]},                        "class_type": "CLIPTextEncode"},
+    "40": {
+        "inputs": {
+            "guide_size": 576, "guide_size_for": True, "max_size": 1024,
+            "seed": 0, "steps": 8, "cfg": 1,
+            "sampler_name": "euler", "scheduler": "simple", "denoise": 0.7,
+            "feather": 5, "noise_mask": True, "force_inpaint": True,
+            "bbox_threshold": 0.5, "bbox_dilation": 10, "bbox_crop_factor": 3,
+            "sam_detection_hint": "center-1", "sam_dilation": 0, "sam_threshold": 0.93,
+            "sam_bbox_expansion": 0, "sam_mask_hint_threshold": 0.7,
+            "sam_mask_hint_use_negative": "False",
+            "drop_size": 50, "wildcard": "", "cycle": 1,
+            "inpaint_model": False, "noise_mask_feather": 27,
+            "tiled_encode": False, "tiled_decode": False,
+            "image": ["8", 0], "model": ["43", 0], "clip": ["32", 0], "vae": ["17", 0],
+            "positive": ["38", 0], "negative": ["7", 0],
+            "bbox_detector": ["36", 0], "sam_model_opt": ["37", 0]
+        },
+        "class_type": "FaceDetailer"
+    },
+    "43": {"inputs": {"strength": 1, "model": ["16", 0]},                   "class_type": "DifferentialDiffusion"},
+}
 
 def patch_zimage(prompt: str, negative: str, aspect_ratio: str, model_name: str) -> dict:
-    raise NotImplementedError("Z-Image Workflow noch nicht konfiguriert")
+    w, h = aspect_to_wh(aspect_ratio)
+    wf = copy.deepcopy(WORKFLOW_ZIMAGE)
+    wf["16"]["inputs"]["unet_name"] = model_name
+    wf["6"]["inputs"]["text"]       = prompt    # positive
+    wf["38"]["inputs"]["text"]      = prompt    # FaceDetailer positive (gleich)
+    wf["7"]["inputs"]["text"]       = negative
+    wf["3"]["inputs"]["seed"]       = random.randint(0, 2**32 - 1)
+    wf["40"]["inputs"]["seed"]      = random.randint(0, 2**32 - 1)
+    wf["13"]["inputs"]["width"]     = w
+    wf["13"]["inputs"]["height"]    = h
+    return wf
 
 
 # ── Dispatch ─────────────────────────────────────────────────────────────────
