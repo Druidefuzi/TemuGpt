@@ -565,7 +565,11 @@
         <div class="wf-sidebar">
             <div class="wf-sidebar-header">
                 <span>📁 Workflows</span>
-                <button class="wf-refresh-btn" onclick="loadWorkflowList()" title="Aktualisieren">↻</button>
+                <div style="display:flex;gap:4px;align-items:center;">
+                    <button class="wf-refresh-btn" onclick="document.getElementById('wf-img-upload').click()" title="Workflow aus Bild laden">🖼️</button>
+                    <button class="wf-refresh-btn" onclick="loadWorkflowList()" title="Aktualisieren">↻</button>
+                </div>
+                <input type="file" id="wf-img-upload" accept=".png" style="display:none" onchange="loadWorkflowFromImage(this)">
             </div>
             <div id="workflow-list">
                 <div class="wf-loading">↻ Lade...</div>
@@ -628,6 +632,52 @@
 <script src="frontend/workflow_ui.js"></script>
 <script>
     loadWorkflowList();
+
+    async function loadWorkflowFromImage(input) {
+        const file = input.files[0];
+        if (!file) return;
+        input.value = '';
+
+        const list = document.getElementById('workflow-list');
+        const prevContent = list.innerHTML;
+        list.innerHTML = '<div class="wf-loading">↻ Lese Bild...</div>';
+
+        const fd = new FormData();
+        fd.append('file', file);
+
+        try {
+            const r = await fetch('/api/workflows/extract-from-image', { method: 'POST', body: fd });
+            const d = await r.json();
+            if (d.error) {
+                list.innerHTML = `<div class="wf-empty">❌ ${d.error}</div>`;
+                setTimeout(() => list.innerHTML = prevContent, 3000);
+                return;
+            }
+            // Als temporären Eintrag in die Liste injizieren und direkt laden
+            const name = file.name.replace('.png', '');
+            list.innerHTML = prevContent;
+            const tempItem = document.createElement('div');
+            tempItem.className = 'wf-item active';
+            tempItem.innerHTML = `
+                <div class="wf-item-icon">🖼️</div>
+                <div class="wf-item-info">
+                    <div class="wf-item-name">${name}</div>
+                    <div class="wf-item-nodes">Aus Bild • ${Object.keys(d.workflow).length} Nodes</div>
+                </div>`;
+            list.prepend(tempItem);
+
+            // Workflow direkt laden
+            document.getElementById('wf-placeholder').style.display = 'none';
+            document.getElementById('wf-editor').style.display = 'flex';
+            document.getElementById('wf-name-title').textContent = name;
+            currentWorkflow = d.workflow;
+            currentPatches  = {};
+            parseAndRenderWorkflow(currentWorkflow);
+        } catch(e) {
+            list.innerHTML = `<div class="wf-empty">❌ ${e.message}</div>`;
+            setTimeout(() => list.innerHTML = prevContent, 3000);
+        }
+    }
 
     let lastSuggestedPrompt = '';
 

@@ -6,6 +6,20 @@ let imageModelName = localStorage.getItem('imgModelName') || '';
 let imageModelList = [];
 let imageTurbo     = false;
 let imageRawPrompt = false;
+let promptStyle    = localStorage.getItem('promptStyle') || 'danbooru';
+
+// ── Prompt-Stil ───────────────────────────────────────────────────────────────
+function setPromptStyle(style) {
+    promptStyle = style;
+    localStorage.setItem('promptStyle', style);
+    document.querySelectorAll('.prompt-style-btn').forEach(btn =>
+        btn.classList.toggle('active', btn.dataset.style === style));
+    fetch('/api/prompt-style', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ style })
+    });
+}
 
 // ── Typ-Wechsel ──────────────────────────────────────────────────────────────
 function setImageModelType(type) {
@@ -19,12 +33,9 @@ function setImageModelType(type) {
         btn.classList.toggle('active', btn.dataset.type === type);
     });
 
-    // Z-Image deaktivieren solange kein Workflow
-    if (type === 'zimage') {
-        document.getElementById('img-model-list').innerHTML =
-            '<div class="img-model-item disabled">⏳ Z-Image Workflow noch nicht konfiguriert</div>';
-        return;
-    }
+    // Auto-Stil basierend auf Modell-Typ
+    const autoStyle = { anima: 'mixed', illustrious: 'danbooru', zimage: 'natural' };
+    setPromptStyle(autoStyle[type] || 'danbooru');
 
     loadImageModels();
 }
@@ -140,6 +151,17 @@ document.addEventListener('DOMContentLoaded', () => {
     // Gespeicherten Typ wiederherstellen
     document.querySelectorAll('.img-type-btn').forEach(btn => {
         btn.classList.toggle('active', btn.dataset.type === imageModelType);
+    });
+
+    // Gespeicherten Prompt-Stil wiederherstellen
+    document.querySelectorAll('.prompt-style-btn').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.style === promptStyle);
+    });
+    // Stil auch an Server melden (nach Neustart)
+    fetch('/api/prompt-style', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ style: promptStyle })
     });
 
     const searchInput = document.getElementById('img-model-search');

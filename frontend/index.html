@@ -117,6 +117,12 @@
                     <button class="imggen-option-btn" id="turbo-toggle-btn" onclick="toggleTurbo()">⚡ Turbo</button>
                     <button class="imggen-option-btn" id="raw-prompt-btn"   onclick="toggleRawPrompt()">✏️ Raw Prompt</button>
                 </div>
+                <div class="imggen-section-label">Prompt-Stil</div>
+                <div class="imggen-type-row">
+                    <button class="img-type-btn prompt-style-btn" data-style="danbooru" onclick="setPromptStyle('danbooru')" title="Kommagetrennte Danbooru-Tags — ideal für Illustrious">🏷️ Tags</button>
+                    <button class="img-type-btn prompt-style-btn" data-style="mixed"    onclick="setPromptStyle('mixed')"    title="Tags + natürliche Sprache — ideal für Anima">✨ Mixed</button>
+                    <button class="img-type-btn prompt-style-btn" data-style="natural"  onclick="setPromptStyle('natural')"  title="Natürliche Sprache — ideal für Z-Image">💬 Natural</button>
+                </div>
             </div>
         </div>
 

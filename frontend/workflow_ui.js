@@ -196,17 +196,33 @@ function renderEditor() {
         container.appendChild(section('🤖 Modell', workflowMeta.models.map(m => `
             <div class="wf-field">
                 <label>${m.type === 'UNETLoader' ? 'UNET' : 'Checkpoint'}</label>
-                <input type="text" class="wf-text-input" value="${m.value}"
-                    onchange="patch('${m.id}','${m.field}',this.value)" placeholder="Modellpfad...">
+                <div class="wf-model-select" id="model-select-${m.id}">
+                    <div class="wf-model-current" onclick="toggleModelList('${m.id}')">
+                        <span class="wf-model-current-name">${m.value.split('\\').pop().split('/').pop()}</span>
+                        <span class="wf-model-arrow">▾</span>
+                    </div>
+                    <div class="wf-model-list" id="model-list-${m.id}" style="display:none">
+                        <div class="wf-model-loading">↻ Lade...</div>
+                    </div>
+                </div>
             </div>`).join('')));
+        // Modelle laden
+        loadModelOptions();
     }
 
     // ── LoRAs
     if (workflowMeta.loras.length) {
         container.appendChild(section('🎨 LoRAs', workflowMeta.loras.map(l => `
             <div class="wf-lora-row">
-                <input type="text" class="wf-text-input" value="${l.name}"
-                    onchange="patch('${l.id}','lora_name',this.value)" placeholder="LoRA Pfad...">
+                <div class="wf-model-select" id="lora-select-${l.id}">
+                    <div class="wf-model-current" onclick="toggleLoraList('${l.id}')">
+                        <span class="wf-model-current-name">${l.name.split('\\').pop().split('/').pop()}</span>
+                        <span class="wf-model-arrow">▾</span>
+                    </div>
+                    <div class="wf-model-list" id="lora-list-${l.id}" style="display:none">
+                        <div class="wf-model-loading">↻ Lade...</div>
+                    </div>
+                </div>
                 <div class="wf-lora-strengths">
                     <div class="wf-field">
                         <label>Model</label>
@@ -226,6 +242,7 @@ function renderEditor() {
                     </div>
                 </div>
             </div>`).join('')));
+        loadLoraOptions();
     }
 }
 
@@ -352,3 +369,95 @@ async function runWorkflow() {
     btn.disabled = false;
     btn.textContent = '▶ Generieren';
 }
+
+// ── Model & LoRA Selection ────────────────────────────────────────────────────
+let allCheckpoints = [];
+let allUnets = [];
+let allLoras = [];
+
+async function loadModelOptions() {
+    try {
+        const r = await fetch('/api/comfy/all-checkpoints');
+        const d = await r.json();
+        allCheckpoints = d.checkpoints || [];
+        allUnets = d.unets || [];
+    } catch(e) { console.error('Modelle laden fehlgeschlagen:', e); }
+}
+
+async function loadLoraOptions() {
+    try {
+        const r = await fetch('/api/comfy/all-loras');
+        const d = await r.json();
+        allLoras = d.loras || [];
+    } catch(e) { console.error('LoRAs laden fehlgeschlagen:', e); }
+}
+
+function toggleModelList(nodeId) {
+    const listEl = document.getElementById(`model-list-${nodeId}`);
+    const isOpen = listEl.style.display !== 'none';
+    document.querySelectorAll('.wf-model-list').forEach(l => l.style.display = 'none');
+    document.querySelectorAll('.wf-model-arrow').forEach(a => a.textContent = '▾');
+    if (isOpen) return;
+
+    const meta = workflowMeta.models.find(m => m.id === nodeId);
+    const items = meta?.type === 'UNETLoader' ? allUnets : allCheckpoints;
+    const field = meta?.type === 'UNETLoader' ? 'unet_name' : 'ckpt_name';
+
+    if (!items.length) {
+        listEl.innerHTML = '<div class="wf-model-loading">Keine Modelle gefunden</div>';
+    } else {
+        listEl.innerHTML = items.map((m, i) => {
+            const short = m.split('\\').pop().split('/').pop();
+            return `<div class="wf-model-item" data-index="${i}" data-node="${nodeId}" data-field="${field}" onclick="selectModel(this)" title="${m}">${short}</div>`;
+        }).join('');
+    }
+    listEl.style.display = 'block';
+    document.querySelector(`#model-select-${nodeId} .wf-model-arrow`).textContent = '▴';
+}
+
+function toggleLoraList(nodeId) {
+    const listEl = document.getElementById(`lora-list-${nodeId}`);
+    const isOpen = listEl.style.display !== 'none';
+    document.querySelectorAll('.wf-model-list').forEach(l => l.style.display = 'none');
+    document.querySelectorAll('.wf-model-arrow').forEach(a => a.textContent = '▾');
+    if (isOpen) return;
+
+    if (!allLoras.length) {
+        listEl.innerHTML = '<div class="wf-model-loading">Keine LoRAs gefunden</div>';
+    } else {
+        listEl.innerHTML = allLoras.map((l, i) => {
+            const short = l.split('\\').pop().split('/').pop();
+            return `<div class="wf-model-item" data-index="${i}" data-node="${nodeId}" onclick="selectLora(this)" title="${l}">${short}</div>`;
+        }).join('');
+    }
+    listEl.style.display = 'block';
+    document.querySelector(`#lora-select-${nodeId} .wf-model-arrow`).textContent = '▴';
+}
+
+function selectModel(el) {
+    const nodeId = el.dataset.node;
+    const field  = el.dataset.field;
+    const items  = field === 'unet_name' ? allUnets : allCheckpoints;
+    const fullPath = items[parseInt(el.dataset.index)];
+    patch(nodeId, field, fullPath);
+    document.querySelector(`#model-select-${nodeId} .wf-model-current-name`).textContent = el.textContent;
+    document.getElementById(`model-list-${nodeId}`).style.display = 'none';
+    document.querySelector(`#model-select-${nodeId} .wf-model-arrow`).textContent = '▾';
+}
+
+function selectLora(el) {
+    const nodeId   = el.dataset.node;
+    const fullPath = allLoras[parseInt(el.dataset.index)];
+    patch(nodeId, 'lora_name', fullPath);
+    document.querySelector(`#lora-select-${nodeId} .wf-model-current-name`).textContent = el.textContent;
+    document.getElementById(`lora-list-${nodeId}`).style.display = 'none';
+    document.querySelector(`#lora-select-${nodeId} .wf-model-arrow`).textContent = '▾';
+}
+
+// Klick außerhalb schließt Listen
+document.addEventListener('click', e => {
+    if (!e.target.closest('.wf-model-select')) {
+        document.querySelectorAll('.wf-model-list').forEach(l => l.style.display = 'none');
+        document.querySelectorAll('.wf-model-arrow').forEach(a => a.textContent = '▾');
+    }
+});
