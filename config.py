@@ -8,7 +8,7 @@ COMFY_URL     = "http://127.0.0.1:8188"
 MODEL_DEFAULT = "huihui-qwen3-vl-4b-instruct-abliterated"
 
 OUTPUT_DIR     = Path.home() / "Dokumente" / "LLM_Output"
-EXPORT_IMG_DIR = Path(r"C:\Users\Druid\office-assistent\exportImg")
+EXPORT_IMG_DIR = Path(__file__).parent / "exportImg"
 MODELS_DIR     = Path.home() / ".lmstudio" / "models"
 KNOWLEDGE_DIR  = Path(__file__).parent / "knowledge"
 WORKFLOWS_DIR  = Path(__file__).parent / "workflows"

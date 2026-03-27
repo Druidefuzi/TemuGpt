@@ -27,6 +27,7 @@
 <div class="main">
 
     <aside class="sidebar">
+        <div class="sidebar-resize-handle" id="sidebar-resize-handle"></div>
 
         <!-- Chats -->
         <div class="accordion accordion-flex">
@@ -76,10 +77,22 @@
                         <span id="custom-wf-toggle-label">⚙️ Custom Workflow: AUS</span>
                     </button>
                     <a id="custom-wf-link" href="/workflows" target="_blank"
-                       style="display:none"
-                       class="quick-btn" style="text-decoration:none">
+                       style="display:none; text-decoration:none"
+                       class="quick-btn">
                         <span class="icon">🔗</span> Editor öffnen
                     </a>
+                </div>
+                <div class="sidebar-setting">
+                    <span class="setting-label">🌡️ Temp</span>
+                    <input type="range" id="setting-temp" min="0" max="2" step="0.05" value="0.3"
+                           oninput="document.getElementById('setting-temp-val').textContent=parseFloat(this.value).toFixed(2)">
+                    <span class="setting-val" id="setting-temp-val">0.30</span>
+                </div>
+                <div class="sidebar-setting">
+                    <span class="setting-label">📐 Context</span>
+                    <input type="range" id="setting-ctx" min="512" max="32768" step="512" value="8192"
+                           oninput="document.getElementById('setting-ctx-val').textContent=parseInt(this.value).toLocaleString()">
+                    <span class="setting-val" id="setting-ctx-val">8,192</span>
                 </div>
             </div>
         </div>
@@ -206,18 +219,6 @@
         </div>
         <div id="file-preview"></div>
         <div class="input-settings">
-            <div class="input-setting">
-                <span class="setting-label">🌡️ Temp</span>
-                <input type="range" id="setting-temp" min="0" max="2" step="0.05" value="0.3"
-                       oninput="document.getElementById('setting-temp-val').textContent=parseFloat(this.value).toFixed(2)">
-                <span class="setting-val" id="setting-temp-val">0.30</span>
-            </div>
-            <div class="input-setting">
-                <span class="setting-label">📐 Context</span>
-                <input type="range" id="setting-ctx" min="512" max="32768" step="512" value="8192"
-                       oninput="document.getElementById('setting-ctx-val').textContent=parseInt(this.value).toLocaleString()">
-                <span class="setting-val" id="setting-ctx-val">8,192</span>
-            </div>
             <div class="input-setting force-action-setting">
                 <span class="setting-label">⚡ Aktion</span>
                 <select id="force-action-select" class="force-action-select">

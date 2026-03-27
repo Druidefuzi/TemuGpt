@@ -142,13 +142,15 @@ def chat():
 
 @app.route("/smart_chat", methods=["POST"])
 def smart_chat():
-    data           = request.json
-    message        = data.get("message", "")
-    history        = data.get("history", [])
-    temperature    = float(data.get("temperature", 0.3))
-    context_length = int(data.get("context_length", 8192))
-    forced_action  = data.get("forced_action", "auto")
-    messages       = build_messages(message=message, history=history)
+    data                 = request.json
+    message              = data.get("message", "")
+    history              = data.get("history", [])
+    temperature          = float(data.get("temperature", 0.3))
+    context_length       = int(data.get("context_length", 8192))
+    forced_action        = data.get("forced_action", "auto")
+    research_max_results = int(data.get("research_max_results", 8))
+    research_min_pages   = int(data.get("research_min_pages", 5))
+    messages             = build_messages(message=message, history=history)
 
     intent = _detect_intent(messages, forced_action=forced_action)
     action = intent.get("action", "chat")
@@ -195,14 +197,14 @@ def smart_chat():
                 return
 
             results = [{"title": r.get("title",""), "snippet": r.get("content",""), "url": r.get("url","")}
-                       for r in raw_results[:8]]
+                       for r in raw_results[:research_max_results]]
             yield "data: " + json.dumps({"type": "step", "text": f"✅ {len(results)} Ergebnisse gefunden", "status": "done"}) + "\n\n"
 
             if state.research_enabled and results:
                 yield "data: " + json.dumps({"type": "step", "text": "📄 Lese Seiteninhalte...", "status": "active"}) + "\n\n"
                 successful = 0
                 for r in results:
-                    if successful >= 5: break
+                    if successful >= research_min_pages: break
                     if r["url"]:
                         content = fetch_page(r["url"], query=query)
                         if content:
@@ -628,6 +630,43 @@ def rename_chat(chat_id):
     with get_db() as conn:
         conn.execute("UPDATE chats SET title=?, updated=? WHERE id=?", (title, now, chat_id))
     return jsonify({"ok": True})
+
+@app.route("/api/chats/<int:chat_id>/generate-title", methods=["POST"])
+def generate_chat_title(chat_id):
+    """Generiert einen kurzen Titel für den Chat via LLM."""
+    data         = request.json or {}
+    user_msg     = data.get("user_message", "")
+    assistant_msg = data.get("assistant_message", "")
+    if not user_msg:
+        return jsonify({"error": "Keine Nachricht"}), 400
+    try:
+        resp = requests.post(
+            f"http://localhost:1234/v1/chat/completions",
+            json={
+                "model":       state.active_model["name"],
+                "messages":    [
+                    {"role": "system",    "content": "Generate a short, descriptive title (3-5 words, German) for this conversation. Respond with ONLY the title, nothing else. No quotes, no punctuation at the end."},
+                    {"role": "user",      "content": user_msg[:300]},
+                    {"role": "assistant", "content": assistant_msg[:200]},
+                    {"role": "user",      "content": "Gib mir einen kurzen Titel (3-5 Wörter) für dieses Gespräch:"}
+                ],
+                "temperature": 0.3,
+                "max_tokens":  20,
+                "stream":      False
+            },
+            timeout=10
+        )
+        resp.raise_for_status()
+        title = resp.json()["choices"][0]["message"].get("content", "").strip()
+        title = title.strip('"\'').strip()
+        if title and len(title) < 80:
+            now = datetime.now().isoformat()
+            with get_db() as conn:
+                conn.execute("UPDATE chats SET title=?, updated=? WHERE id=?", (title, now, chat_id))
+            return jsonify({"ok": True, "title": title})
+    except Exception as e:
+        print(f"[TitleGen] Fehler: {e}")
+    return jsonify({"ok": False})
 
 @app.route("/api/chats/<int:chat_id>", methods=["DELETE"])
 def delete_chat(chat_id):

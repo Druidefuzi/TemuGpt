@@ -156,7 +156,6 @@ async function smartSend(msgText, history) {
 
 // ── STREAM HANDLER ──
 async function handleSmartStream(resp, msgText, thinkId = null) {
-    if (thinkId) removeThinking(thinkId);
     const msgs = document.getElementById('messages');
 
     const div = document.createElement('div');
@@ -175,6 +174,14 @@ async function handleSmartStream(resp, msgText, thinkId = null) {
     let sourcesDiv = null;
     let reasoningBuf = "";
     let reasoningEl  = null;
+    let firstEventReceived = false;
+
+    function onFirstEvent() {
+        if (!firstEventReceived) {
+            firstEventReceived = true;
+            if (thinkId) removeThinking(thinkId);
+        }
+    }
 
     function getOrCreateReasoning() {
         if (!reasoningEl && typeof showReasoning !== 'undefined' && showReasoning) {
@@ -249,9 +256,11 @@ async function handleSmartStream(resp, msgText, thinkId = null) {
                 const json = JSON.parse(line.slice(6));
 
                 if (json.type === "step") {
+                    onFirstEvent();
                     addStep(json.text, json.status || 'active');
                 }
                 else if (json.type === "reasoning") {
+                    onFirstEvent();
                     // Reasoning-Text akkumulieren
                     reasoningBuf += json.text;
                     if (!reasoningEl) reasoningEl = getOrCreateReasoning();
@@ -260,9 +269,11 @@ async function handleSmartStream(resp, msgText, thinkId = null) {
                     }
                 }
                 else if (json.type === "source") {
+                    onFirstEvent();
                     addSource(json.title, json.host, json.url);
                 }
                 else if (json.type === "search_done") {
+                    onFirstEvent();
                     if (stepsDiv) stepsDiv.style.display = 'none';
                     if (sourcesDiv) bubble.appendChild(sourcesDiv);
                     streamContent.innerHTML = formatText(json.message);
@@ -281,6 +292,7 @@ async function handleSmartStream(resp, msgText, thinkId = null) {
                     await saveMsgsToDB(msgText, json.message);
                 }
                 else if (json.type === "image_preview") {
+                    onFirstEvent();
                     let previewEl = div.querySelector('.comfy-preview');
                     if (!previewEl) {
                         previewEl = document.createElement('img');
@@ -315,6 +327,7 @@ async function handleSmartStream(resp, msgText, thinkId = null) {
                     await saveImageMsgToDB(msgText, json);
                 }
                 else if (json.type === "content") {
+                    onFirstEvent();
                     fullText += json.text;
                     const looksLikeJson = fullText.trimStart().startsWith('{');
                     if (!looksLikeJson) {
@@ -379,6 +392,7 @@ function renderChatHistory(chats) {
         <div class="chat-history-item ${c.id === currentChatId ? 'active-chat' : ''}" id="chat-item-${c.id}">
             <div class="chat-item-title" onclick="loadChat(${c.id})" title="${c.title}">${c.title}</div>
             <div class="chat-item-actions">
+                <button class="chat-action-btn" onclick="exportChat(${c.id})" title="Exportieren">⬇️</button>
                 <button class="chat-action-btn" onclick="renameChat(${c.id})" title="Umbenennen">✏️</button>
                 <button class="chat-action-btn" onclick="deleteChat(${c.id})" title="Löschen">🗑️</button>
             </div>
@@ -468,6 +482,7 @@ async function deleteChat(chatId) {
 }
 
 async function saveMsgsToDB(userMsg, assistantMsg) {
+    const isFirstMessage = !currentChatId;
     if (!currentChatId) {
         const resp = await fetch('/api/chats', { method: 'POST' });
         const data = await resp.json();
@@ -483,6 +498,55 @@ async function saveMsgsToDB(userMsg, assistantMsg) {
         ]})
     });
     await loadChatHistory();
+
+    // Auto-Titel nach erster Antwort generieren (fire & forget)
+    if (isFirstMessage && currentChatId) {
+        generateChatTitle(currentChatId, userMsg, assistantMsg);
+    }
+}
+
+async function generateChatTitle(chatId, userMsg, assistantMsg) {
+    try {
+        await fetch(`/api/chats/${chatId}/generate-title`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ user_message: userMsg, assistant_message: assistantMsg })
+        });
+        await loadChatHistory();
+    } catch (e) {
+        // silent fail — Titel bleibt wie er ist
+    }
+}
+
+async function exportChat(chatId) {
+    try {
+        const resp = await fetch(`/api/chats/${chatId}`);
+        const data = await resp.json();
+        const title = data.chat.title || 'Chat';
+        let md = `# ${title}\n\n`;
+        md += `_Exportiert: ${new Date().toLocaleString('de-DE')}_\n\n---\n\n`;
+        for (const m of data.messages) {
+            const role = m.role === 'user' ? '👤 **Du**' : '🤖 **Assistent**';
+            let content = m.content;
+            // Bild-JSON zu lesbarem Text
+            if (content.startsWith('{"__type":"image"')) {
+                try {
+                    const img = JSON.parse(content);
+                    content = `_[Bild generiert: ${img.prompt}]_`;
+                } catch(e) {}
+            }
+            md += `${role}\n\n${content}\n\n---\n\n`;
+        }
+        const blob = new Blob([md], { type: 'text/markdown;charset=utf-8' });
+        const url  = URL.createObjectURL(blob);
+        const a    = document.createElement('a');
+        a.href     = url;
+        a.download = `${title.replace(/[^a-zA-Z0-9äöüÄÖÜß\s]/g, '_')}.md`;
+        a.click();
+        URL.revokeObjectURL(url);
+    } catch (e) {
+        console.error('[Export] Fehler:', e);
+    }
 }
 
 async function saveImageMsgToDB(userMsg, imgJson) {

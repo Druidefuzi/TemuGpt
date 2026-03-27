@@ -93,11 +93,11 @@ def fetch_page(url: str, query: str = "", max_words: int = 800) -> str:
         return ""
 
 
-def search_searxng(query: str, max_results: int = 8) -> list:
+def search_searxng(query: str, max_results: int = 8, min_pages: int = 5) -> list:
     language = detect_language(query)
     params   = {"q": query, "format": "json", "language": language}
 
-    print(f"[SearXNG] Suche nach: {query} (lang: {language})")
+    print(f"[SearXNG] Suche nach: {query} (lang: {language}, max: {max_results})")
     try:
         resp = requests.get(SEARXNG_URL, params=params, timeout=10)
         resp.raise_for_status()
@@ -120,17 +120,17 @@ def search_searxng(query: str, max_results: int = 8) -> list:
 
     # Research-Modus: Seiten scrapen
     if state.research_enabled and results:
-        print("[Research] Rufe Seiten ab...")
+        print(f"[Research] Rufe Seiten ab (min: {min_pages})...")
         successful = 0
         for r in results:
-            if successful >= 5:
+            if successful >= min_pages:
                 break
             if r["url"]:
                 content = fetch_page(r["url"], query=query)
                 if content:
                     r["full_content"] = content
                     successful += 1
-                    print(f"[Research] ✓ ({successful}/5) {r['url'][:60]}")
+                    print(f"[Research] ✓ ({successful}/{min_pages}) {r['url'][:60]}")
         print(f"[Research] {successful} Seiten erfolgreich abgerufen")
 
     return results

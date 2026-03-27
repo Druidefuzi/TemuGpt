@@ -677,6 +677,21 @@ header span {
     flex: 0 0 auto;
 }
 
+/* Slider in der Sidebar */
+.sidebar-setting {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 2px 0;
+}
+
+.sidebar-setting input[type=range] {
+    flex: 1;
+    height: 3px;
+    accent-color: var(--accent);
+    cursor: pointer;
+}
+
 .force-action-select {
     background: var(--surface2);
     border: 1px solid var(--border);
