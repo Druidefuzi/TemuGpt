@@ -1,0 +1,51 @@
+red
+blue
+green
+purple
+pink
+orange
+golden
+silver
+white
+black
+crimson
+teal
+cyan
+violet
+magenta
+scarlet
+emerald
+sapphire
+amber
+ivory
+coral
+indigo
+lavender
+turquoise
+rose
+copper
+platinum
+midnight blue
+pastel pink
+neon green
+deep red
+ice blue
+forest green
+burnt orange
+ash blonde
+strawberry blonde
+honey blonde
+dark brown
+chestnut
+mahogany
+steel gray
+snow white
+jet black
+cherry red
+aquamarine
+peach
+lilac
+mint green
+dusty rose
+wine red
+cobalt blue

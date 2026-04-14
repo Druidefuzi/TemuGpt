@@ -42,6 +42,30 @@ def comfy_get_models() -> list:
     return comfy_get_models_by_type("anima")
 
 
+def comfy_upload_image(image_b64: str) -> str:
+    """Lädt ein Base64-Bild in ComfyUI hoch. Gibt den zugewiesenen Dateinamen zurück."""
+    import io
+    from PIL import Image as PILImage
+
+    image_data = base64.b64decode(image_b64)
+    img = PILImage.open(io.BytesIO(image_data)).convert("RGB")
+    buf = io.BytesIO()
+    img.save(buf, format="PNG")
+    buf.seek(0)
+
+    resp = requests.post(
+        f"{COMFY_URL}/upload/image",
+        files={"image": ("i2i_input.png", buf, "image/png")},
+        data={"overwrite": "true"},
+        timeout=15
+    )
+    resp.raise_for_status()
+    result = resp.json()
+    name = result.get("name", "i2i_input.png")
+    subfolder = result.get("subfolder", "")
+    return f"{subfolder}/{name}" if subfolder else name
+
+
 def comfy_generate_stream(workflow: dict, model_type: str = "anima"):
     """Generator: Sendet Workflow an ComfyUI, streamt Previews + Progress via WebSocket.
     Yieldet dicts: image_preview | image_progress | image_final | error

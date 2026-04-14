@@ -1,0 +1,175 @@
+ILLUSTRIOUS XL — ADVANCED PROMPTING KNOWLEDGE
+================================================
+For local LLM context. No basics — only nuances and details.
+
+ARCHITECTURE & BEHAVIOR
+------------------------
+Illustrious XL is an SDXL finetune with heavily expanded anime/illustration training.
+It is very sensitive to tag order — what appears early in the prompt dominates the
+visual composition. The CLIP encoder processes tokens in chunks, so the first "half"
+of the prompt is conceptually more influential than the second.
+
+TAG ORDER (Priority Principle)
+--------------------------------
+Order = weight. Rule of thumb:
+  1. Quality tags (score_9, score_8_up, ...)
+  2. Number of figures (1girl, 2girls, 1boy, ...)
+  3. Main character attributes (hair color, eye color, body type)
+  4. Clothing / outfit
+  5. Pose / action
+  6. Facial expression
+  7. Background / setting
+  8. Lighting mood
+  9. Camera / composition
+  10. Art style tags (if desired)
+
+Why this matters: if you write "forest background" before "1girl", the model often
+prioritizes the environment over the character. The figure then "fights" against the BG.
+
+ATTENTION WEIGHTS — THE NUANCES
+---------------------------------
+Syntax: (tag:weight) — default weight is 1.0
+
+Recommended ranges:
+  - Mild emphasis:    1.1 – 1.2
+  - Medium emphasis:  1.3 – 1.4
+  - Strong emphasis:  1.5 (recommended maximum — above this becomes unstable)
+  - De-emphasis:      0.6 – 0.9
+
+IMPORTANT: Never use multiple strong weights simultaneously. If everything is
+emphasized, nothing is emphasized. The model normalizes internally — too many
+(tag:1.5) leads to artifacts and style "smearing".
+
+Good practice:
+  Wrong:   (blue eyes:1.5), (long hair:1.5), (white dress:1.5), (forest:1.5)
+  Right:   (blue eyes:1.3), long hair, white dress, (forest:1.1)
+
+Weight stacking with parentheses:
+  ((tag)) ≈ 1.21  (1.1^2)
+  (((tag))) ≈ 1.33
+  This syntax works in Illustrious but is less precise than explicit weights.
+  Always prefer explicit weights (tag:1.2) over stacked parentheses.
+
+NEGATIVE PROMPT — NUANCES
+---------------------------
+Illustrious responds very well to differentiated negatives — not just quality negatives,
+but also conceptual ones.
+
+Anatomy negatives that actually help:
+  bad anatomy, bad hands, extra fingers, missing fingers, fused fingers,
+  extra limbs, deformed limbs, floating limbs, disconnected limbs,
+  malformed face, asymmetrical eyes, crossed eyes, bad proportions
+
+Stylistic negatives (to avoid unwanted genres):
+  3d render, photorealistic   (if you want anime)
+  flat color, simple background  (if you want a detailed BG)
+  chibi, deformed             (if you want realistic proportions)
+  sketch, lineart             (if you want a rendered output)
+
+COMPOSITE CHARACTERS — COMMON PITFALL
+---------------------------------------
+With multiple figures, Illustrious tends to "blend" attributes across characters.
+Countermeasures:
+  - Explicitly differentiate figures: "1girl with red hair, 1boy with blue hair"
+  - Use targeted attention weights: (red hair girl:1.2), (blue hair boy:1.2)
+  - If needed: Regional Prompting via ControlNet or compositional aids
+
+LIGHTING & ATMOSPHERE — UNDERESTIMATED TAGS
+---------------------------------------------
+These tags have disproportionate influence on overall aesthetics in Illustrious:
+
+  Soft light:       soft lighting, diffuse lighting, ambient light
+  Dramatic:         dramatic lighting, rim lighting, (spotlight:1.2)
+  Moody:            golden hour, magic hour, dusk, dawn, blue hour
+  Special effects:  lens flare, god rays, volumetric light, caustics
+  Indoor:           candlelight, warm light, cozy atmosphere
+  Cold/Mystical:    moonlight, cold light, ethereal glow, bioluminescence
+
+Combining them makes the difference:
+  Good:    soft lighting, golden hour, rim lighting
+  Weak:    good lighting   (too vague for the model)
+
+CAMERA & COMPOSITION
+---------------------
+Illustrious understands cinematic terminology well:
+
+  Shot sizes:
+    close-up, portrait, bust shot, upper body, full body, wide shot, cowboy shot
+    (cowboy shot = from mid-thigh up, very common in anime)
+
+  Camera angles:
+    from above, from below, from behind, dutch angle, low angle, high angle,
+    bird's eye view, worm's eye view
+
+  Depth of field:
+    bokeh, depth of field, blurry background, (sharp focus:1.1)
+    TIP: "bokeh" alone is often enough. Adding "blurry background" reinforces it.
+
+  Compositional rules work:
+    rule of thirds, centered composition, symmetrical composition, dynamic pose
+
+ART STYLE SPECIFICATION
+------------------------
+Illustrious has broad style knowledge. Precise style tags help:
+
+  By medium:
+    oil painting, watercolor, digital art, cel shading, lineart, sketch,
+    comic book style, manga style, illustration
+
+  By era/aesthetic:
+    retro anime, 90s anime style, modern anime, art nouveau, ukiyo-e inspired
+
+  Cinematic crossover:
+    anime screencap, movie poster style, key visual, concept art
+
+  WARNING: Style tags interact with quality tags.
+  "score_9, realistic" leads to more realistic outputs even for anime content.
+  If you want pure anime style: do not include any "realistic" tags.
+
+CONSISTENCY TRICKS
+-------------------
+For consistent characters across multiple generations:
+
+  - Always use the exact same hair color phrasing: "silver hair" — not alternating
+    between "silver hair", "grey hair", "white silver hair" — this causes output drift
+  - Keep outfit tags complete: not just "school uniform", but
+    "school uniform, white shirt, dark pleated skirt, red ribbon"
+  - Eye description: combine eye color + eye shape:
+    "blue eyes, tsurime eyes" vs just "blue eyes" → measurably more consistent
+
+CFG SCALE INTERACTION WITH PROMPTS
+------------------------------------
+CFG Scale (Guidance Scale) interacts with prompt complexity:
+
+  CFG 4-5:   Very creative, hallucinating outputs. Short prompts work better.
+  CFG 6-7:   Good balance. Standard for Illustrious.
+  CFG 8-10:  Strict prompt adherence, but more artifacts. Long prompts OK.
+  CFG 11+:   Oversteering, overcontrast — not recommended.
+
+Rule of thumb: The more detailed the prompt, the lower CFG can go (7-8).
+For creative/atmospheric prompts: CFG 6-7 allows more model interpretation.
+
+COMMON MISTAKES
+----------------
+1. Quality tags placed at the end: score_9 etc. belong at the BEGINNING
+2. Contradictory tags: "night scene, bright sunlight" — model compromises on both
+3. Too much character detail when background is desired: BG gets drowned out
+4. "beautiful" as a vague tag: better to describe concrete aesthetics
+5. Duplicate concepts: "long hair, very long hair, flowing hair" — use one + weight
+6. Outfit without body context: "stockings" without "legs visible" often shows no legs
+
+ADVANCED TECHNIQUES
+--------------------
+AND syntax (BREAK / AND):
+  Prompt1 AND Prompt2 — two separate CLIP passes, then combined.
+  Useful for very different concepts that "displace" each other.
+  Example: "1girl, red dress BREAK forest background, misty, atmospheric"
+
+Prompt Scheduling (A1111/ComfyUI only):
+  [tag_A:tag_B:0.5] — tag A for the first 50% of steps, then tag B
+  Useful for subtle style transitions or soft attribute blending
+
+Mind the token limit:
+  CLIP has a 75-token limit per chunk (A1111 extends this automatically).
+  Important tags should fall within the first 75 tokens.
+  In ComfyUI: CLIPTextEncodeSDXL allows separate G/L prompts for more control.

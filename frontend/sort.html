@@ -1,0 +1,491 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Assistant</title>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="frontend/style.css">
+    <style>
+        * { box-sizing: border-box; }
+        body {
+            margin: 0; font-family: 'Syne', sans-serif;
+            background: var(--bg); color: var(--text);
+            min-height: 100vh;
+            display: flex; flex-direction: column;
+            overflow-y: auto;
+        }
+
+        .sort-header {
+            display: flex; align-items: center; gap: 12px;
+            padding: 0 20px; height: 52px;
+            border-bottom: 1px solid var(--border);
+            background: var(--surface); flex-shrink: 0;
+        }
+        .sort-back-btn {
+            background: none; border: 1px solid var(--border);
+            color: var(--muted); border-radius: 8px;
+            padding: 5px 12px; font-family: 'Syne', sans-serif;
+            font-size: 0.78rem; cursor: pointer; transition: all .15s;
+            text-decoration: none;
+        }
+        .sort-back-btn:hover { border-color: var(--accent); color: var(--text); }
+        .sort-back-btn.active { background: rgba(108,99,255,.15); border-color: var(--accent); color: var(--accent); }
+        .sort-header h1 { font-size: 1rem; font-weight: 700; margin: 0; }
+        .sort-badge {
+            font-size: 0.7rem; background: rgba(108,99,255,.15);
+            border: 1px solid var(--accent); color: var(--accent);
+            border-radius: 20px; padding: 2px 10px;
+        }
+
+        .sort-main {
+            flex: 1; max-width: 720px; margin: 0 auto;
+            padding: 40px 20px; width: 100%;
+            display: flex; flex-direction: column; gap: 24px;
+        }
+
+        .sort-card {
+            background: var(--surface); border: 1px solid var(--border);
+            border-radius: 12px; padding: 20px;
+        }
+        .sort-card-title {
+            font-size: 0.7rem; font-weight: 700;
+            text-transform: uppercase; letter-spacing: .08em;
+            color: var(--muted); margin-bottom: 10px;
+        }
+
+        .sort-instruction {
+            width: 100%;
+            background: var(--bg); border: 1px solid var(--border);
+            border-radius: 8px; color: var(--text);
+            font-family: 'Syne', sans-serif; font-size: 0.85rem;
+            padding: 10px 12px; resize: vertical; min-height: 72px;
+            transition: border-color .15s; line-height: 1.5;
+        }
+        .sort-instruction:focus { outline: none; border-color: var(--accent); }
+        .sort-instruction::placeholder { color: var(--muted); }
+
+        .sort-hint {
+            font-size: 0.75rem; color: var(--muted);
+            margin-top: 8px; line-height: 1.5;
+        }
+
+        .sort-start-btn {
+            width: 100%; padding: 12px;
+            border-radius: 10px; border: none;
+            background: var(--accent); color: #fff;
+            font-family: 'Syne', sans-serif; font-size: 0.9rem;
+            font-weight: 700; cursor: pointer; transition: opacity .15s;
+        }
+        .sort-start-btn:hover { opacity: 0.85; }
+        .sort-start-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+
+        /* ── Log ── */
+        .sort-log {
+            background: var(--bg); border: 1px solid var(--border);
+            border-radius: 8px; padding: 14px;
+            font-family: 'DM Mono', monospace; font-size: 0.78rem;
+            line-height: 1.7; overflow-y: visible;
+            display: none;
+        }
+        .sort-log.visible { display: block; }
+
+        .log-info   { color: var(--muted); }
+        .log-moved  { color: #4caf7d; }
+        .log-warn   { color: #e0a020; }
+        .log-done   { color: var(--accent); font-weight: 700; }
+        .log-progress { color: var(--text); }
+
+        /* ── Progress bar ── */
+        .sort-progress-wrap {
+            display: none; margin-bottom: 10px;
+        }
+        .sort-progress-wrap.visible { display: block; }
+        .sort-progress-bar {
+            height: 6px; background: var(--border);
+            border-radius: 3px; overflow: hidden; margin-bottom: 6px;
+        }
+        .sort-progress-fill {
+            height: 100%; background: var(--accent);
+            border-radius: 3px; transition: width .3s;
+            width: 0%;
+        }
+        .sort-progress-label {
+            font-size: 0.72rem; color: var(--muted);
+            font-family: 'DM Mono', monospace;
+        }
+
+        /* ── Summary ── */
+        .sort-summary {
+            display: none; padding: 12px 16px;
+            background: rgba(76,175,125,.08);
+            border: 1px solid rgba(76,175,125,.3);
+            border-radius: 8px; font-size: 0.82rem;
+            color: #4caf7d; font-weight: 600;
+        }
+        .sort-summary.visible { display: block; }
+
+        /* ── App Header (shared) ── */
+        .app-header {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            padding: 0 20px;
+            height: 52px;
+            border-bottom: 1px solid var(--border);
+            background: var(--surface);
+            flex-shrink: 0;
+        }
+        .app-brand {
+            display: flex;
+            align-items: center;
+            gap: 9px;
+            text-decoration: none;
+            flex-shrink: 0;
+        }
+        .app-logo {
+            width: 28px;
+            height: 28px;
+            border-radius: 7px;
+            object-fit: cover;
+        }
+        .app-name {
+            font-size: 0.88rem;
+            font-weight: 800;
+            color: var(--text);
+            white-space: nowrap;
+        }
+        .app-nav {
+            display: flex;
+            gap: 5px;
+            align-items: center;
+            margin-left: auto;
+        }
+        .app-tab {
+            background: none;
+            border: 1px solid var(--border);
+            color: var(--muted);
+            border-radius: 8px;
+            padding: 5px 11px;
+            font-family: 'Syne', sans-serif;
+            font-size: 0.77rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all .15s;
+            text-decoration: none;
+            white-space: nowrap;
+        }
+        .app-tab:hover { border-color: var(--accent); color: var(--text); }
+        .app-tab.active { background: rgba(108,99,255,.15); border-color: var(--accent); color: var(--accent); }
+        @media (max-width: 900px) {
+            .app-name { display: none; }
+            .app-tab { padding: 5px 7px; font-size: 0.7rem; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="app-header">
+    <a href="/" class="app-brand">
+        <img src="frontend/assets/logo.png" class="app-logo" id="app-logo" alt="Logo">
+        <span class="app-name" id="app-name">AI Assistant</span>
+    </a>
+</div>
+
+<div class="sort-main">
+
+    <div class="sort-card">
+        <div class="sort-card-title">📁 Quellordner</div>
+        <div style="display:flex;gap:8px;align-items:center">
+            <select id="source-folder" class="sort-instruction" style="min-height:unset;height:36px;resize:none">
+                <option value="">exportImg/ (Root)</option>
+            </select>
+            <button onclick="loadSourceFolders()" style="height:36px;padding:0 12px;border-radius:8px;border:1px solid var(--border);background:none;color:var(--muted);cursor:pointer;font-family:'Syne',sans-serif;font-size:0.8rem;white-space:nowrap" title="Aktualisieren">↻</button>
+        </div>
+        <div class="sort-hint">Standardmäßig werden nur Bilder direkt in exportImg/ sortiert. Unterordner auswählen um dort nachzusortieren.</div>
+    </div>
+
+    <div class="sort-card">
+        <div class="sort-card-title">⚡ Parallelität</div>
+        <div style="display:flex;align-items:center;gap:12px">
+            <input type="range" id="batch-size" min="1" max="50" value="1"
+                   style="flex:1;accent-color:var(--accent)"
+                   oninput="document.getElementById('batch-label').textContent=this.value">
+            <span id="batch-label" style="font-family:'DM Mono',monospace;font-size:0.85rem;min-width:24px;color:var(--accent);font-weight:700">1</span>
+            <span style="font-size:0.75rem;color:var(--muted)">Bilder gleichzeitig</span>
+        </div>
+        <div class="sort-hint" style="margin-top:6px">⚠️ LM Studio verarbeitet Requests sequenziell — bei hoher Parallelität timeouten alle gleichzeitig. Empfehlung: <strong>1-2</strong> für LM Studio. Timeout ist 60s pro Request.</div>
+    </div>
+
+    <div class="sort-card">
+        <div class="sort-card-title">ℹ️ Was wird sortiert?</div>
+        <div style="font-size:0.82rem;color:var(--muted);line-height:1.6">
+            Alle PNG-Bilder direkt in <code style="color:var(--accent)">exportImg/</code> werden analysiert
+            und in <code style="color:var(--accent)">exportImg/sorted/[ordner]/</code> verschoben.
+            Bereits sortierte Bilder (in Unterordnern) werden nicht angefasst.
+        </div>
+    </div>
+
+    <div class="sort-card">
+        <div class="sort-card-title">✏️ Optionale Sortier-Anweisung</div>
+        <div style="display:flex;gap:8px;margin-bottom:8px;align-items:center">
+            <select id="sort-preset" style="flex:1;height:34px;background:var(--bg);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:'Syne',sans-serif;font-size:0.8rem;padding:0 10px;cursor:pointer"
+                    onchange="applyPreset(this)">
+                <option value="">— Preset laden —</option>
+            </select>
+        </div>
+        <textarea class="sort-instruction" id="instruction"
+                  placeholder="z.B. Sortiere nach @artist Tags am Anfang des Prompts&#10;z.B. Gruppiere nach Kunststil&#10;z.B. Sortiere nach Charakteren im Bild&#10;Leer lassen für automatische Kategorisierung"></textarea>
+        <div class="sort-hint">
+            Die KI liest den Prompt aus jeder PNG-Datei, schaut welche Ordner bereits existieren,
+            und entscheidet dann wo das Bild am besten passt.
+        </div>
+    </div>
+
+    <div class="sort-card">
+        <div class="sort-card-title">👁️ Analyse-Modus</div>
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:8px">
+            <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
+                <input type="checkbox" id="vision-toggle" style="accent-color:var(--accent);width:16px;height:16px">
+                <span style="font-size:0.85rem;font-weight:600">Vision-Modus</span>
+            </label>
+            <span style="font-size:0.75rem;color:var(--muted)">Bild direkt ins Vision-Modell laden statt Prompt lesen</span>
+        </div>
+        <div id="vision-settings" style="display:none;margin-top:8px">
+            <div style="font-size:0.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin-bottom:6px">Bildgröße für Vision</div>
+            <div style="display:flex;gap:8px">
+                <label style="flex:1;cursor:pointer">
+                    <input type="radio" name="vision-size" value="original" style="accent-color:var(--accent)">
+                    <span style="font-size:0.8rem"> Original</span>
+                </label>
+                <label style="flex:1;cursor:pointer">
+                    <input type="radio" name="vision-size" value="512" checked style="accent-color:var(--accent)">
+                    <span style="font-size:0.8rem"> Hälfte (512²)</span>
+                </label>
+                <label style="flex:1;cursor:pointer">
+                    <input type="radio" name="vision-size" value="256" style="accent-color:var(--accent)">
+                    <span style="font-size:0.8rem"> Viertel (256²)</span>
+                </label>
+            </div>
+        </div>
+        <div class="sort-hint" id="vision-hint" style="display:none">
+            ⚠️ Langsamer aber genauer — das Modell sieht das Bild direkt. Gut wenn Prompts fehlen oder ungenau sind.
+        </div>
+    </div>
+
+    <div class="sort-card">
+        <div class="sort-progress-wrap" id="progress-wrap">
+            <div class="sort-progress-bar">
+                <div class="sort-progress-fill" id="progress-fill"></div>
+            </div>
+            <div class="sort-progress-label" id="progress-label">0 / 0</div>
+        </div>
+        <div class="sort-summary" id="summary"></div>
+        <div class="sort-log" id="log"></div>
+        <button class="sort-start-btn" id="start-btn" onclick="startSort()" style="margin-top:12px">
+            🗂️ Sortierung starten
+        </button>
+        <button class="sort-start-btn" id="unsort-btn" onclick="startUnsort()"
+                style="margin-top:8px;background:none;border:1px solid var(--border);color:var(--muted)">
+            ↩️ Unsort — alle zurückverschieben
+        </button>
+    </div>
+
+</div>
+
+<script>
+    let isRunning = false;
+    let movedCount = 0;
+
+    document.addEventListener('DOMContentLoaded', () => {
+        loadSourceFolders();
+        loadSortPresets();
+        document.getElementById('vision-toggle').addEventListener('change', function() {
+            document.getElementById('vision-hint').style.display = this.checked ? 'block' : 'none';
+            document.getElementById('vision-settings').style.display = this.checked ? 'block' : 'none';
+        });
+    });
+
+    async function loadSortPresets() {
+        try {
+            const resp = await fetch('/api/sorts');
+            const data = await resp.json();
+            const sel  = document.getElementById('sort-preset');
+            for (const p of (data.presets || [])) {
+                const opt       = document.createElement('option');
+                opt.value       = p.content;
+                opt.textContent = p.name;
+                sel.appendChild(opt);
+            }
+        } catch(e) { console.warn('Presets:', e); }
+    }
+
+    function applyPreset(sel) {
+        if (!sel.value) return;
+        document.getElementById('instruction').value = sel.value;
+        sel.value = ''; // Reset dropdown nach Auswahl
+    }
+
+    async function loadSourceFolders() {
+        const sel = document.getElementById('source-folder');
+        const current = sel.value;
+        sel.innerHTML = '<option value="">exportImg/ (Root)</option>';
+        try {
+            // Lade alle Unterordner rekursiv (2 Ebenen)
+            const addFolders = async (folder, depth) => {
+                const url  = folder ? `/api/gallery?folder=${encodeURIComponent(folder)}` : '/api/gallery';
+                const resp = await fetch(url);
+                const data = await resp.json();
+                for (const f of (data.folders || [])) {
+                    const opt = document.createElement('option');
+                    opt.value = f.path;
+                    opt.textContent = '  '.repeat(depth) + '📁 ' + f.path + (f.count ? ` (${f.count})` : '');
+                    if (f.path === current) opt.selected = true;
+                    sel.appendChild(opt);
+                    if (depth < 2) await addFolders(f.path, depth + 1);
+                }
+            };
+            await addFolders('', 0);
+        } catch(e) { console.warn('Folders:', e); }
+    }
+
+    async function startUnsort() {
+        if (isRunning) return;
+        if (!confirm('Alle Bilder aus exportImg/sorted/ zurück nach exportImg/ verschieben und Unterordner löschen?')) return;
+
+        const btn    = document.getElementById('unsort-btn');
+        const log    = document.getElementById('log');
+        const summary = document.getElementById('summary');
+        btn.disabled = true;
+        btn.textContent = '⏳ Unsort...';
+        log.innerHTML = '';
+        log.classList.add('visible');
+        summary.classList.remove('visible');
+
+        try {
+            const resp = await fetch('/api/sort/unsort', { method: 'POST' });
+            const d    = await resp.json();
+            appendLog(log, d.text, 'log-done');
+            summary.textContent = d.text;
+            summary.classList.add('visible');
+        } catch(e) {
+            appendLog(log, `❌ ${e.message}`, 'log-warn');
+        }
+
+        btn.disabled    = false;
+        btn.textContent = '↩️ Unsort — alle zurückverschieben';
+    }
+
+    async function startSort() {
+        if (isRunning) return;
+        isRunning  = true;
+        movedCount = 0;
+
+        const btn         = document.getElementById('start-btn');
+        const log         = document.getElementById('log');
+        const progressWrap = document.getElementById('progress-wrap');
+        const fill        = document.getElementById('progress-fill');
+        const label       = document.getElementById('progress-label');
+        const summary     = document.getElementById('summary');
+        const instruction = document.getElementById('instruction').value.trim();
+
+        btn.disabled     = true;
+        btn.textContent  = '⏳ Sortiere...';
+        log.innerHTML    = '';
+        log.classList.add('visible');
+        summary.classList.remove('visible');
+        progressWrap.classList.add('visible');
+        fill.style.width = '0%';
+        label.textContent = 'Starte...';
+
+        try {
+            const resp = await fetch('/api/sort/run', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    instruction:   instruction,
+                    use_vision:    document.getElementById('vision-toggle').checked,
+                    vision_size:   document.querySelector('input[name="vision-size"]:checked')?.value || '512',
+                    source_folder: document.getElementById('source-folder').value || '',
+                    batch_size:    parseInt(document.getElementById('batch-size').value) || 1
+                })
+            });
+
+            const reader  = resp.body.getReader();
+            const decoder = new TextDecoder();
+            let buf = '';
+
+            while (true) {
+                const { done, value } = await reader.read();
+                if (done) break;
+                buf += decoder.decode(value, { stream: true });
+                const lines = buf.split('\n');
+                buf = lines.pop();
+
+                for (const line of lines) {
+                    if (!line.startsWith('data: ')) continue;
+                    try {
+                        const d = JSON.parse(line.slice(6));
+                        handleEvent(d, fill, label, log, summary);
+                    } catch(e) {}
+                }
+            }
+        } catch(e) {
+            appendLog(log, `❌ ${e.message}`, 'log-warn');
+        }
+
+        btn.disabled    = false;
+        btn.textContent = '🗂️ Nochmal sortieren';
+        isRunning       = false;
+    }
+
+    function handleEvent(d, fill, label, log, summary) {
+        if (d.type === 'info') {
+            appendLog(log, d.text, 'log-info');
+        } else if (d.type === 'progress') {
+            const pct = Math.round((d.current / d.total) * 100);
+            fill.style.width  = pct + '%';
+            label.textContent = `${d.current} / ${d.total} (${pct}%)`;
+            appendLog(log, d.text, 'log-progress');
+        } else if (d.type === 'moved') {
+            movedCount++;
+            appendLog(log, d.text, 'log-moved');
+        } else if (d.type === 'warn') {
+            appendLog(log, d.text, 'log-warn');
+        } else if (d.type === 'done') {
+            fill.style.width = '100%';
+            appendLog(log, d.text, 'log-done');
+            summary.textContent = d.text;
+            summary.classList.add('visible');
+        }
+    }
+
+    function appendLog(log, text, cls) {
+        const line = document.createElement('div');
+        line.className = cls;
+        line.textContent = text;
+        log.appendChild(line);
+        log.scrollTop = log.scrollHeight;
+    }
+
+    // ── App Header: Personality ──
+    (async function loadAppHeader() {
+        try {
+            const [ar, lr] = await Promise.all([
+                fetch('/api/personalities/active'),
+                fetch('/api/personalities')
+            ]);
+            const { active } = await ar.json();
+            const { personalities } = await lr.json();
+            const p = personalities.find(x => x.name === active);
+            const nameEl = document.getElementById('app-name');
+            if (nameEl) nameEl.textContent = `${active} — AI Assistant`;
+            const logoEl = document.getElementById('app-logo');
+            if (logoEl && p?.has_logo)
+                logoEl.src = `/api/personalities/${active}/logo?t=${Date.now()}`;
+        } catch(e) {}
+    })();
+</script>
+<script src="frontend/navigation.js"></script>
+</body>
+</html>

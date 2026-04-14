@@ -1,0 +1,870 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Assistant — Model Merger</title>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="frontend/style.css">
+    <style>
+        * { box-sizing: border-box; }
+        html, body { height: auto !important; overflow-y: auto !important; }
+        body { margin: 0; font-family: 'Syne', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; display: flex; flex-direction: column; }
+
+        /* ── App Header ── */
+        .app-header { display: flex; align-items: center; gap: 14px; padding: 0 20px; height: 52px; border-bottom: 1px solid var(--border); background: var(--surface); flex-shrink: 0; }
+        .app-brand  { display: flex; align-items: center; gap: 9px; text-decoration: none; flex-shrink: 0; }
+        .app-logo   { width: 28px; height: 28px; border-radius: 7px; object-fit: cover; }
+        .app-name   { font-size: 0.88rem; font-weight: 800; color: var(--text); white-space: nowrap; }
+        .app-nav    { display: flex; gap: 5px; align-items: center; margin-left: auto; }
+        .app-tab    { background: none; border: 1px solid var(--border); color: var(--muted); border-radius: 8px; padding: 5px 11px; font-family: 'Syne', sans-serif; font-size: 0.77rem; font-weight: 600; cursor: pointer; transition: all .15s; text-decoration: none; white-space: nowrap; }
+        .app-tab:hover  { border-color: var(--accent); color: var(--text); }
+        .app-tab.active { background: rgba(108,99,255,.15); border-color: var(--accent); color: var(--accent); }
+
+        /* ── Layout ── */
+        .mg-layout { display: grid; grid-template-columns: 1fr 320px; gap: 0; flex: 1; min-height: calc(100vh - 52px); }
+
+        /* ── Panel ── */
+        .mg-panel { display: flex; flex-direction: column; border-right: 1px solid var(--border); overflow: hidden; }
+        .mg-panel-header { padding: 16px 20px 12px; border-bottom: 1px solid var(--border); flex-shrink: 0; }
+        .mg-panel-title  { font-size: 0.65rem; font-weight: 700; text-transform: uppercase; letter-spacing: .1em; color: var(--muted); margin-bottom: 2px; }
+        .mg-panel-subtitle { font-size: 0.92rem; font-weight: 700; }
+        .mg-panel-body   { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 16px; }
+
+        /* ── Sidebar ── */
+        .mg-sidebar { display: flex; flex-direction: column; background: var(--surface); overflow-y: auto; padding: 16px; gap: 16px; }
+        .mg-sidebar-section { display: flex; flex-direction: column; gap: 8px; }
+        .mg-sidebar-title   { font-size: 0.65rem; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); padding-bottom: 6px; border-bottom: 1px solid var(--border); }
+
+        /* ── Tabs ── */
+        .mg-tabs { display: flex; gap: 0; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+        .mg-tab  { flex: 1; padding: 8px; border: none; background: none; color: var(--muted); font-family: 'Syne', sans-serif; font-size: 0.82rem; font-weight: 700; cursor: pointer; transition: all .15s; }
+        .mg-tab.active { background: var(--accent); color: #fff; }
+        .mg-tab:hover:not(.active) { background: rgba(108,99,255,.1); color: var(--text); }
+
+        /* ── Sub Toggle ── */
+        .mg-subtoggle { display: flex; gap: 0; border: 1px solid var(--border); border-radius: 6px; overflow: hidden; }
+        .mg-subtab    { flex: 1; padding: 6px 10px; border: none; background: none; color: var(--muted); font-family: 'Syne', sans-serif; font-size: 0.76rem; font-weight: 600; cursor: pointer; transition: all .15s; }
+        .mg-subtab.active { background: rgba(108,99,255,.15); color: var(--accent); }
+
+        /* ── Fields ── */
+        .mg-field { display: flex; flex-direction: column; gap: 5px; }
+        .mg-field label { font-size: 0.68rem; font-weight: 700; text-transform: uppercase; letter-spacing: .07em; color: var(--muted); }
+        .mg-select { width: 100%; height: 36px; background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; color: var(--text); font-family: 'DM Mono', monospace; font-size: 0.8rem; padding: 0 10px; }
+        .mg-select:focus { outline: none; border-color: var(--accent); }
+        .mg-input { width: 100%; height: 36px; background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; color: var(--text); font-family: 'DM Mono', monospace; font-size: 0.8rem; padding: 0 10px; }
+        .mg-input:focus { outline: none; border-color: var(--accent); }
+        .mg-textarea { width: 100%; background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; color: var(--text); font-family: 'Syne', sans-serif; font-size: 0.82rem; padding: 8px 10px; resize: vertical; line-height: 1.4; }
+        .mg-textarea:focus { outline: none; border-color: var(--accent); }
+
+        /* ── Slider row ── */
+        .mg-slider-row { display: flex; align-items: center; gap: 8px; }
+        .mg-slider-label { font-size: 0.78rem; font-weight: 600; color: var(--text); min-width: 120px; }
+        .mg-slider { flex: 1; accent-color: var(--accent); cursor: pointer; }
+        .mg-slider-val { font-family: 'DM Mono', monospace; font-size: 0.78rem; color: var(--accent); min-width: 32px; text-align: right; }
+        .mg-num-input { width: 60px; height: 28px; background: var(--bg); border: 1px solid var(--border); border-radius: 6px; color: var(--text); font-family: 'DM Mono', monospace; font-size: 0.78rem; padding: 0 6px; text-align: center; }
+        .mg-num-input:focus { outline: none; border-color: var(--accent); }
+
+        /* ── Toggle row ── */
+        .mg-toggle-row { display: flex; align-items: center; gap: 10px; }
+        .mg-toggle { position: relative; display: inline-block; width: 40px; height: 22px; flex-shrink: 0; }
+        .mg-toggle input { opacity: 0; width: 0; height: 0; }
+        .mg-toggle-track { position: absolute; inset: 0; background: var(--border); border-radius: 22px; cursor: pointer; transition: background .2s; }
+        .mg-toggle-track::after { content: ''; position: absolute; width: 16px; height: 16px; left: 3px; top: 3px; background: #fff; border-radius: 50%; transition: transform .2s; }
+        .mg-toggle input:checked + .mg-toggle-track { background: var(--accent); }
+        .mg-toggle input:checked + .mg-toggle-track::after { transform: translateX(18px); }
+        .mg-toggle-label { font-size: 0.82rem; font-weight: 600; color: var(--text); }
+        .mg-toggle-desc  { font-size: 0.72rem; color: var(--muted); }
+
+        /* ── Ratio Visual ── */
+        .mg-ratio-bar { height: 12px; border-radius: 6px; overflow: hidden; display: flex; margin: 4px 0; }
+        .mg-ratio-a   { background: var(--accent); transition: width .2s; }
+        .mg-ratio-b   { background: var(--accent2); transition: width .2s; }
+        .mg-ratio-labels { display: flex; justify-content: space-between; font-size: 0.7rem; color: var(--muted); font-family: 'DM Mono', monospace; }
+
+        /* ── Run Button ── */
+        .mg-run-btn { width: 100%; padding: 12px; border-radius: 10px; border: none; background: var(--accent); color: #fff; font-family: 'Syne', sans-serif; font-size: 0.9rem; font-weight: 700; cursor: pointer; transition: opacity .15s; }
+        .mg-run-btn:hover    { opacity: .85; }
+        .mg-run-btn:disabled { opacity: .45; cursor: not-allowed; }
+
+        /* ── Status ── */
+        .mg-status { display: flex; align-items: center; gap: 8px; padding: 8px 12px; border-radius: 8px; background: var(--surface2); border: 1px solid var(--border); font-size: 0.78rem; color: var(--muted); }
+        .mg-status-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); flex-shrink: 0; }
+        .mg-status-dot.active { background: var(--accent); animation: pulse 1.2s infinite; }
+        .mg-status-dot.done   { background: var(--success); }
+        .mg-status-dot.error  { background: var(--accent2); }
+        @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.35} }
+
+        /* ── Preview Image ── */
+        .mg-preview { border-radius: 10px; border: 1px solid var(--border); overflow: hidden; background: var(--surface2); }
+        .mg-preview img { width: 100%; display: block; }
+        .mg-preview-empty { min-height: 160px; display: flex; align-items: center; justify-content: center; color: var(--muted); font-size: 0.8rem; flex-direction: column; gap: 6px; }
+
+        /* ── Separator ── */
+        .mg-sep { height: 1px; background: var(--border); margin: 4px 0; }
+
+        /* ── Model Search ── */
+        .mg-model-wrap { position: relative; }
+        .mg-model-input { width: 100%; height: 36px; background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; color: var(--text); font-family: 'DM Mono', monospace; font-size: 0.8rem; padding: 0 10px; }
+        .mg-model-input:focus { outline: none; border-color: var(--accent); }
+        .mg-model-dropdown { position: absolute; top: 38px; left: 0; right: 0; background: var(--surface); border: 1px solid var(--accent); border-radius: 8px; max-height: 220px; overflow-y: auto; z-index: 100; display: none; box-shadow: 0 4px 20px rgba(0,0,0,.4); }
+        .mg-model-dropdown.open { display: block; }
+        .mg-model-option { padding: 7px 12px; font-size: 0.78rem; font-family: 'DM Mono', monospace; color: var(--text); cursor: pointer; border-bottom: 1px solid var(--border); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .mg-model-option:last-child { border-bottom: none; }
+        .mg-model-option:hover, .mg-model-option.highlighted { background: rgba(108,99,255,.15); color: var(--accent); }
+        .mg-model-option .mg-model-full { font-size: 0.65rem; color: var(--muted); display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+        /* ── Hint ── */
+        .mg-hint { font-size: 0.72rem; color: var(--muted); background: rgba(108,99,255,.05); border: 1px solid rgba(108,99,255,.15); border-radius: 6px; padding: 6px 10px; line-height: 1.5; }
+
+        /* ── Advanced block sliders ── */
+        .mg-block-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 12px; }
+        .mg-block-row  { display: flex; align-items: center; gap: 6px; }
+        .mg-block-label { font-size: 0.7rem; font-family: 'DM Mono', monospace; color: var(--muted); min-width: 130px; }
+
+        @media (max-width: 900px) {
+            .mg-layout { grid-template-columns: 1fr; }
+            .mg-panel  { border-right: none; border-bottom: 1px solid var(--border); }
+        }
+    </style>
+</head>
+<body>
+
+<div class="app-header">
+    <a href="/" class="app-brand">
+        <img src="frontend/assets/logo.png" class="app-logo" id="app-logo" alt="Logo">
+        <span class="app-name" id="app-name">AI Assistant</span>
+    </a>
+</div>
+
+<div class="mg-layout">
+
+    <!-- ── Left: Merge Config ── -->
+    <div class="mg-panel">
+        <div class="mg-panel-header">
+            <div class="mg-panel-title">Konfiguration</div>
+            <div class="mg-panel-subtitle">Model Merge Settings</div>
+        </div>
+        <div class="mg-panel-body">
+
+            <div class="mg-hint">⚠️ Nur für <strong>SD1.5</strong> und <strong>SDXL</strong> Modelle. Andere Architekturen können zu Fehlern führen.</div>
+
+            <!-- Model selection -->
+            <div class="mg-field">
+                <label>Model A (Base)</label>
+                <div class="mg-model-wrap" id="wrap-model-a">
+                    <input type="text" class="mg-model-input" id="model-a-input" placeholder="Modell suchen..." autocomplete="off"
+                           oninput="filterModelDropdown('a', this.value)"
+                           onfocus="openModelDropdown('a')"
+                           onkeydown="handleModelKey(event,'a')">
+                    <input type="hidden" id="model-a">
+                    <div class="mg-model-dropdown" id="dropdown-a"></div>
+                </div>
+            </div>
+            <div class="mg-field">
+                <label>Model B (Mix)</label>
+                <div class="mg-model-wrap" id="wrap-model-b">
+                    <input type="text" class="mg-model-input" id="model-b-input" placeholder="Modell suchen..." autocomplete="off"
+                           oninput="filterModelDropdown('b', this.value)"
+                           onfocus="openModelDropdown('b')"
+                           onkeydown="handleModelKey(event,'b')">
+                    <input type="hidden" id="model-b">
+                    <div class="mg-model-dropdown" id="dropdown-b"></div>
+                </div>
+            </div>
+
+            <!-- Ratio visualization -->
+            <div>
+                <div class="mg-ratio-bar">
+                    <div class="mg-ratio-a" id="ratio-bar-a" style="width:50%"></div>
+                    <div class="mg-ratio-b" id="ratio-bar-b" style="width:50%"></div>
+                </div>
+                <div class="mg-ratio-labels">
+                    <span id="ratio-label-a">Model A: 50%</span>
+                    <span id="ratio-label-b">Model B: 50%</span>
+                </div>
+            </div>
+
+            <div class="mg-sep"></div>
+
+            <!-- Main tabs -->
+            <div class="mg-tabs">
+                <button class="mg-tab active" id="tab-simple" onclick="setTab('simple')">Simple</button>
+                <button class="mg-tab" id="tab-advanced" onclick="setTab('advanced')">Advanced</button>
+            </div>
+
+            <!-- Sub-toggle -->
+            <div class="mg-subtoggle">
+                <button class="mg-subtab active" id="sub-simple" onclick="setSubMode('simple')">Simple Merge</button>
+                <button class="mg-subtab" id="sub-block" onclick="setSubMode('block')">Block Merge</button>
+            </div>
+
+            <!-- ── SIMPLE MERGE PANEL ── -->
+            <div id="panel-simple-merge">
+                <div class="mg-slider-row">
+                    <span class="mg-slider-label">Model Ratio</span>
+                    <input type="range" class="mg-slider" id="simple-ratio" min="0" max="1" step="0.01" value="0.5"
+                           oninput="syncSliderNum('simple-ratio','simple-ratio-num'); updateRatioVis()">
+                    <input type="number" class="mg-num-input" id="simple-ratio-num" min="0" max="1" step="0.01" value="0.5"
+                           oninput="syncNumSlider('simple-ratio-num','simple-ratio'); updateRatioVis()">
+                </div>
+            </div>
+
+            <!-- ── BLOCK MERGE SIMPLE PANEL ── -->
+            <div id="panel-block-simple" style="display:none;flex-direction:column;gap:10px">
+                <div class="mg-hint" style="font-size:0.7rem">Knowledge = IN layers · Core = MID · General Look = OUT 0-1 · Style = OUT 2-8 + out.</div>
+                <div id="block-simple-sliders"></div>
+            </div>
+
+            <!-- ── BLOCK MERGE ADVANCED PANEL ── -->
+            <div id="panel-block-advanced" style="display:none;flex-direction:column;gap:8px">
+                <div class="mg-hint" style="font-size:0.7rem">Alle Blöcke einzeln konfigurierbar (ModelMergeSDXL).</div>
+                <div id="block-advanced-sliders" class="mg-block-grid"></div>
+            </div>
+
+            <div class="mg-sep"></div>
+
+            <!-- CLIP -->
+            <div class="mg-slider-row">
+                <span class="mg-slider-label">CLIP Ratio</span>
+                <input type="range" class="mg-slider" id="clip-ratio" min="0" max="1" step="0.01" value="0.5"
+                       oninput="syncSliderNum('clip-ratio','clip-ratio-num')">
+                <input type="number" class="mg-num-input" id="clip-ratio-num" min="0" max="1" step="0.01" value="0.5"
+                       oninput="syncNumSlider('clip-ratio-num','clip-ratio')">
+            </div>
+
+        </div>
+    </div>
+
+    <!-- ── Right: Sidebar ── -->
+    <div class="mg-sidebar">
+
+        <!-- Run -->
+        <button class="mg-run-btn" id="run-btn" onclick="runMerge()">🔀 Merge & Preview</button>
+        <div class="mg-status" id="merge-status">
+            <div class="mg-status-dot" id="status-dot"></div>
+            <span id="status-text">Bereit</span>
+        </div>
+
+        <!-- Preview -->
+        <div class="mg-preview" id="preview-box">
+            <div class="mg-preview-empty">
+                <span style="font-size:2rem;opacity:.2">🖼️</span>
+                <span>Preview erscheint hier</span>
+            </div>
+        </div>
+
+        <div class="mg-sep"></div>
+
+        <!-- VAE Source -->
+        <div class="mg-sidebar-section">
+            <div class="mg-sidebar-title">VAE Quelle</div>
+            <div class="mg-field">
+                <label>VAE kommt von</label>
+                <select class="mg-select" id="vae-source">
+                    <option value="a">Model A</option>
+                    <option value="b">Model B</option>
+                </select>
+            </div>
+        </div>
+
+        <div class="mg-sep"></div>
+
+        <!-- Preview Options -->
+        <div class="mg-sidebar-section">
+            <div class="mg-sidebar-title">Preview Optionen</div>
+            <div class="mg-toggle-row">
+                <label class="mg-toggle"><input type="checkbox" id="toggle-preview" checked onchange="togglePreviewOptions()"><span class="mg-toggle-track"></span></label>
+                <div><div class="mg-toggle-label">KSampler Preview</div><div class="mg-toggle-desc">Testbild generieren</div></div>
+            </div>
+            <div id="preview-options" style="display:flex;flex-direction:column;gap:8px;margin-top:4px">
+                <div class="mg-field">
+                    <label>Seed</label>
+                    <div style="display:flex;gap:6px;align-items:center">
+                        <input type="number" class="mg-input" id="preview-seed" value="1" min="0" style="flex:1">
+                        <button onclick="document.getElementById('preview-seed').value=Math.floor(Math.random()*2**32)"
+                                style="height:36px;padding:0 10px;border-radius:8px;border:1px solid var(--border);background:none;color:var(--muted);cursor:pointer;font-size:0.8rem;white-space:nowrap"
+                                onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">🎲</button>
+                    </div>
+                </div>
+                <div class="mg-field">
+                    <label>Positiver Prompt</label>
+                    <textarea class="mg-textarea" id="pos-prompt" rows="2" placeholder="1girl, smile, best quality">1girl, smile, best quality</textarea>
+                </div>
+                <div class="mg-toggle-row">
+                    <label class="mg-toggle"><input type="checkbox" id="toggle-facedetail"><span class="mg-toggle-track"></span></label>
+                    <div><div class="mg-toggle-label">FaceDetailer</div><div class="mg-toggle-desc">Gesicht nachbearbeiten</div></div>
+                </div>
+                <div class="mg-toggle-row">
+                    <label class="mg-toggle"><input type="checkbox" id="toggle-dmd2"><span class="mg-toggle-track"></span></label>
+                    <div><div class="mg-toggle-label">DMD2 LoRA</div><div class="mg-toggle-desc">Turbo sampling LoRA</div></div>
+                </div>
+                <div id="dmd2-options" style="display:none">
+                    <div class="mg-field">
+                        <label>DMD2 LoRA Pfad</label>
+                        <select class="mg-select" id="dmd2-lora">
+                            <option value="">— LoRA wählen —</option>
+                            <option value="SDXL 1.0\tool\dmd2_sdxl_4step_lora_fp16.safetensors" selected>dmd2_sdxl_4step_lora_fp16</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="mg-sep"></div>
+
+        <!-- Save Checkpoint -->
+        <div class="mg-sidebar-section">
+            <div class="mg-sidebar-title">Checkpoint Speichern</div>
+            <div class="mg-toggle-row">
+                <label class="mg-toggle"><input type="checkbox" id="toggle-save-ckpt"><span class="mg-toggle-track"></span></label>
+                <div><div class="mg-toggle-label">Checkpoint speichern</div><div class="mg-toggle-desc">In ComfyUI output/checkpoints/</div></div>
+            </div>
+            <div class="mg-field" style="margin-top:4px">
+                <label>Dateiname (ohne .safetensors)</label>
+                <input type="text" class="mg-input" id="ckpt-name" placeholder="merged_model" value="merged_model">
+            </div>
+        </div>
+
+        <div class="mg-sep"></div>
+
+        <!-- ComfyUI URL -->
+        <div class="mg-sidebar-section">
+            <div class="mg-sidebar-title">ComfyUI</div>
+            <div class="mg-field">
+                <label>URL</label>
+                <input type="text" class="mg-input" id="comfy-url" value="http://127.0.0.1:8188">
+            </div>
+            <button onclick="loadModels()" style="background:none;border:1px solid var(--border);border-radius:6px;padding:5px 10px;font-size:0.75rem;color:var(--muted);cursor:pointer;font-family:var(--sans);width:100%" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">↻ Modelle neu laden</button>
+        </div>
+
+    </div>
+</div>
+
+<script>
+    // ── State ──────────────────────────────────────────────────────────────────
+    let currentTab     = 'simple';
+    let currentSubMode = 'simple';
+    let lastImageB64   = null;
+
+    const SDXL_BLOCKS = [
+        'time_embed.', 'label_emb.',
+        'input_blocks.0','input_blocks.1','input_blocks.2','input_blocks.3',
+        'input_blocks.4','input_blocks.5','input_blocks.6','input_blocks.7','input_blocks.8',
+        'middle_block.0','middle_block.1','middle_block.2',
+        'output_blocks.0','output_blocks.1','output_blocks.2','output_blocks.3',
+        'output_blocks.4','output_blocks.5','output_blocks.6','output_blocks.7','output_blocks.8',
+        'out.'
+    ];
+
+    const BLOCK_GROUPS = {
+        knowledge:    ['time_embed.','label_emb.','input_blocks.0','input_blocks.1','input_blocks.2','input_blocks.3','input_blocks.4','input_blocks.5','input_blocks.6','input_blocks.7','input_blocks.8'],
+        core:         ['middle_block.0','middle_block.1','middle_block.2'],
+        general_look: ['output_blocks.0','output_blocks.1'],
+        style:        ['output_blocks.2','output_blocks.3','output_blocks.4','output_blocks.5','output_blocks.6','output_blocks.7','output_blocks.8','out.'],
+    };
+
+    // ── Init ──────────────────────────────────────────────────────────────────
+    window.addEventListener('DOMContentLoaded', () => {
+        loadModels();
+        buildBlockSimpleSliders();
+        buildBlockAdvancedSliders();
+        updateRatioVis();
+        loadAppHeader();
+    });
+
+    // ── Tab / SubMode ─────────────────────────────────────────────────────────
+    function setTab(tab) {
+        currentTab = tab;
+        document.getElementById('tab-simple').classList.toggle('active', tab === 'simple');
+        document.getElementById('tab-advanced').classList.toggle('active', tab === 'advanced');
+        updatePanels();
+    }
+
+    function setSubMode(mode) {
+        currentSubMode = mode;
+        document.getElementById('sub-simple').classList.toggle('active', mode === 'simple');
+        document.getElementById('sub-block').classList.toggle('active', mode === 'block');
+        updatePanels();
+    }
+
+    function updatePanels() {
+        const isBlock    = currentSubMode === 'block';
+        const isAdvanced = currentTab === 'advanced';
+        document.getElementById('panel-simple-merge').style.display    = !isBlock ? 'block' : 'none';
+        document.getElementById('panel-block-simple').style.display    = isBlock && !isAdvanced ? 'flex' : 'none';
+        document.getElementById('panel-block-advanced').style.display  = isBlock && isAdvanced  ? 'flex' : 'none';
+        updateRatioVis();
+    }
+
+    // ── Slider sync ──────────────────────────────────────────────────────────
+    function syncSliderNum(sliderId, numId) {
+        document.getElementById(numId).value = parseFloat(document.getElementById(sliderId).value).toFixed(2);
+    }
+    function syncNumSlider(numId, sliderId) {
+        let v = parseFloat(document.getElementById(numId).value);
+        v = Math.max(0, Math.min(1, isNaN(v) ? 0 : v));
+        document.getElementById(sliderId).value = v;
+        document.getElementById(numId).value = v.toFixed(2);
+    }
+
+    // ── Ratio Visual ──────────────────────────────────────────────────────────
+    function updateRatioVis() {
+        let ratio = 0.5;
+        if (currentSubMode === 'simple') {
+            ratio = parseFloat(document.getElementById('simple-ratio').value);
+        } else if (currentSubMode === 'block') {
+            // Average of all block values
+            const vals = [];
+            if (currentTab === 'simple') {
+                for (const [g] of Object.entries(BLOCK_GROUPS)) {
+                    const el = document.getElementById(`bsimple-${g}`);
+                    if (el) vals.push(parseFloat(el.value));
+                }
+            } else {
+                for (const b of SDXL_BLOCKS) {
+                    const el = document.getElementById(`badv-${b}`);
+                    if (el) vals.push(parseFloat(el.value));
+                }
+            }
+            if (vals.length) ratio = vals.reduce((a,b) => a+b, 0) / vals.length;
+        }
+        const pctA = Math.round(ratio * 100);
+        const pctB = 100 - pctA;
+        document.getElementById('ratio-bar-a').style.width = pctA + '%';
+        document.getElementById('ratio-bar-b').style.width = pctB + '%';
+        const valA  = document.getElementById('model-a')?.value || '';
+        const valB  = document.getElementById('model-b')?.value || '';
+        const nameA = valA ? valA.split('\\').pop().split('/').pop().replace(/\.safetensors$/,'') : 'Model A';
+        const nameB = valB ? valB.split('\\').pop().split('/').pop().replace(/\.safetensors$/,'') : 'Model B';
+        document.getElementById('ratio-label-a').textContent = `${nameA}: ${pctA}%`;
+        document.getElementById('ratio-label-b').textContent = `${nameB}: ${pctB}%`;
+    }
+
+    // ── Block Simple Sliders ──────────────────────────────────────────────────
+    function buildBlockSimpleSliders() {
+        const groups = [
+            { id: 'knowledge',    label: 'Knowledge',     desc: 'IN layers (time_embed, label_emb, input_blocks.0-8)' },
+            { id: 'core',         label: 'Core',          desc: 'MID blocks (middle_block.0-2)' },
+            { id: 'general_look', label: 'General Look',  desc: 'OUT 0-1' },
+            { id: 'style',        label: 'Style',         desc: 'OUT 2-8 + out.' },
+        ];
+        const wrap = document.getElementById('block-simple-sliders');
+        wrap.innerHTML = groups.map(g => `
+            <div class="mg-slider-row" style="margin-bottom:6px">
+                <div style="min-width:110px">
+                    <div style="font-size:0.8rem;font-weight:700;color:var(--text)">${g.label}</div>
+                    <div style="font-size:0.65rem;color:var(--muted)">${g.desc}</div>
+                </div>
+                <input type="range" class="mg-slider" id="bsimple-${g.id}" min="0" max="1" step="0.01" value="0.5"
+                       oninput="syncSliderNum('bsimple-${g.id}','bsimple-num-${g.id}'); updateRatioVis()">
+                <input type="number" class="mg-num-input" id="bsimple-num-${g.id}" min="0" max="1" step="0.01" value="0.5"
+                       oninput="syncNumSlider('bsimple-num-${g.id}','bsimple-${g.id}'); updateRatioVis()">
+            </div>`).join('');
+    }
+
+    // ── Block Advanced Sliders ────────────────────────────────────────────────
+    function buildBlockAdvancedSliders() {
+        const wrap = document.getElementById('block-advanced-sliders');
+        wrap.style.display = 'flex';
+        wrap.style.flexDirection = 'column';
+        wrap.style.gap = '4px';
+        wrap.innerHTML = SDXL_BLOCKS.map(b => `
+            <div class="mg-block-row">
+                <span class="mg-block-label">${b}</span>
+                <input type="range" class="mg-slider" id="badv-${b}" min="0" max="1" step="0.01" value="1"
+                       oninput="syncSliderNum('badv-${b}','badv-num-${b}'); updateRatioVis()" style="flex:1">
+                <input type="number" class="mg-num-input" id="badv-num-${b}" min="0" max="1" step="0.01" value="1.00"
+                       oninput="syncNumSlider('badv-num-${b}','badv-${b}'); updateRatioVis()">
+            </div>`).join('');
+    }
+
+    // ── Toggle helpers ────────────────────────────────────────────────────────
+    function togglePreviewOptions() {
+        const on = document.getElementById('toggle-preview').checked;
+        document.getElementById('preview-options').style.display = on ? 'flex' : 'none';
+    }
+
+    document.getElementById('toggle-dmd2').addEventListener('change', function() {
+        document.getElementById('dmd2-options').style.display = this.checked ? 'block' : 'none';
+    });
+
+    // ── Load models from ComfyUI ──────────────────────────────────────────────
+    async function loadModels() {
+        const base = document.getElementById('comfy-url').value.trim();
+        setStatus('Lade Modelle...', 'active');
+        try {
+            const r = await fetch(`${base}/object_info/CheckpointLoaderSimple`);
+            const d = await r.json();
+            const models = d.CheckpointLoaderSimple?.input?.required?.ckpt_name?.[0] || [];
+            populateModelSearch(models);
+
+            // Load LoRAs
+            const lr = await fetch(`${base}/object_info/LoraLoader`);
+            const ld = await lr.json();
+            const loras = ld.LoraLoader?.input?.required?.lora_name?.[0] || [];
+            const DMD2_DEFAULT = 'SDXL 1.0\\tool\\dmd2_sdxl_4step_lora_fp16.safetensors';
+            const loraSel = document.getElementById('dmd2-lora');
+            loraSel.innerHTML = '<option value="">— LoRA wählen —</option>';
+            loras.forEach(l => {
+                const opt = document.createElement('option');
+                opt.value = l; opt.textContent = l.split('\\').pop().split('/').pop();
+                if (l === DMD2_DEFAULT || l.includes('dmd2_sdxl_4step_lora_fp16')) opt.selected = true;
+                loraSel.appendChild(opt);
+            });
+            // Fallback: if not found in list, add it manually
+            if (!loraSel.value) {
+                const opt = document.createElement('option');
+                opt.value = DMD2_DEFAULT;
+                opt.textContent = 'dmd2_sdxl_4step_lora_fp16';
+                opt.selected = true;
+                loraSel.appendChild(opt);
+            }
+
+            setStatus(`${models.length} Modelle geladen`, 'done');
+            updateRatioVis();
+        } catch(e) {
+            setStatus('ComfyUI nicht erreichbar: ' + e.message, 'error');
+        }
+    }
+
+    let _allModels = [];
+    let _modelHighlight = { a: -1, b: -1 };
+
+    function populateSelect(id, items, clearFirst = true) {
+        // legacy shim for LoRA select
+        const sel = document.getElementById(id);
+        if (!sel) return;
+        if (clearFirst) sel.innerHTML = '<option value="">— LoRA wählen —</option>';
+        items.forEach(m => {
+            const opt = document.createElement('option');
+            opt.value = m;
+            opt.textContent = m.split('\\').pop().split('/').pop();
+            sel.appendChild(opt);
+        });
+    }
+
+    function populateModelSearch(models) {
+        _allModels = models;
+        renderModelDropdown('a', models);
+        renderModelDropdown('b', models);
+    }
+
+    function renderModelDropdown(ab, items) {
+        const dd = document.getElementById(`dropdown-${ab}`);
+        dd.innerHTML = items.map((m, i) => {
+            const short = m.split('\\').pop().split('/').pop();
+            const folder = m.includes('\\') || m.includes('/') ? m.substring(0, m.lastIndexOf(m.includes('\\') ? '\\' : '/')) : '';
+            return `<div class="mg-model-option" data-idx="${i}" onmouseover="highlightModel('${ab}', ${i})">
+                        ${short}
+                        ${folder ? `<span class="mg-model-full">${folder}</span>` : ''}
+                    </div>`;
+        }).join('');
+        // Use event delegation with index to avoid backslash escaping issues
+        dd._items = items;
+        dd.onclick = (e) => {
+            const opt = e.target.closest('.mg-model-option');
+            if (!opt) return;
+            const idx   = parseInt(opt.dataset.idx);
+            const value = dd._items[idx];
+            const short = value.split('\\').pop().split('/').pop();
+            selectModel(ab, value, short);
+        };
+        _modelHighlight[ab] = -1;
+    }
+
+    function filterModelDropdown(ab, q) {
+        document.getElementById(`model-${ab}`).value = '';
+        const filtered = q ? _allModels.filter(m => m.toLowerCase().includes(q.toLowerCase())) : _allModels;
+        renderModelDropdown(ab, filtered);
+        openModelDropdown(ab);
+        updateRatioVis();
+    }
+
+    function openModelDropdown(ab) {
+        document.getElementById(`dropdown-${ab}`).classList.add('open');
+    }
+
+    function closeModelDropdown(ab) {
+        document.getElementById(`dropdown-${ab}`).classList.remove('open');
+    }
+
+    function selectModel(ab, value, short) {
+        document.getElementById(`model-${ab}`).value = value;
+        document.getElementById(`model-${ab}-input`).value = short;
+        closeModelDropdown(ab);
+        updateRatioVis();
+    }
+
+    function highlightModel(ab, idx) {
+        _modelHighlight[ab] = idx;
+        document.querySelectorAll(`#dropdown-${ab} .mg-model-option`).forEach((el, i) => {
+            el.classList.toggle('highlighted', i === idx);
+        });
+    }
+
+    function handleModelKey(e, ab) {
+        const dd = document.getElementById(`dropdown-${ab}`);
+        const opts = dd.querySelectorAll('.mg-model-option');
+        if (!opts.length) return;
+        if (e.key === 'ArrowDown') {
+            e.preventDefault();
+            _modelHighlight[ab] = Math.min(_modelHighlight[ab] + 1, opts.length - 1);
+            highlightModel(ab, _modelHighlight[ab]);
+            opts[_modelHighlight[ab]]?.scrollIntoView({ block: 'nearest' });
+        } else if (e.key === 'ArrowUp') {
+            e.preventDefault();
+            _modelHighlight[ab] = Math.max(_modelHighlight[ab] - 1, 0);
+            highlightModel(ab, _modelHighlight[ab]);
+            opts[_modelHighlight[ab]]?.scrollIntoView({ block: 'nearest' });
+        } else if (e.key === 'Enter') {
+            e.preventDefault();
+            if (_modelHighlight[ab] >= 0 && opts[_modelHighlight[ab]]) {
+                opts[_modelHighlight[ab]].click();
+            }
+        } else if (e.key === 'Escape') {
+            closeModelDropdown(ab);
+        }
+    }
+
+    // Close dropdowns on outside click
+    document.addEventListener('click', e => {
+        if (!e.target.closest('#wrap-model-a')) closeModelDropdown('a');
+        if (!e.target.closest('#wrap-model-b')) closeModelDropdown('b');
+    });
+
+    // ── Build Workflow ────────────────────────────────────────────────────────
+    function buildWorkflow() {
+        const modelA    = document.getElementById('model-a').value;
+        const modelB    = document.getElementById('model-b').value;
+        const clipRatio = parseFloat(document.getElementById('clip-ratio').value);
+        const vaeFrom   = document.getElementById('vae-source').value; // 'a' or 'b'
+        const doPreview = document.getElementById('toggle-preview').checked;
+        const doFace    = document.getElementById('toggle-facedetail').checked;
+        const doDmd2    = document.getElementById('toggle-dmd2').checked;
+        const doSave    = document.getElementById('toggle-save-ckpt').checked;
+        const ckptName  = document.getElementById('ckpt-name').value.trim() || 'merged_model';
+        const posPrompt = document.getElementById('pos-prompt').value.trim() || '1girl, smile, best quality';
+        const dmd2Lora  = document.getElementById('dmd2-lora').value;
+
+        if (!modelA || !modelB) { alert('Bitte beide Modelle wählen.'); return null; }
+
+        const wf = {};
+
+        // Model loaders
+        wf['m1'] = { class_type: 'CheckpointLoaderSimple', inputs: { ckpt_name: modelA }, _meta: { title: 'Model A' } };
+        wf['m2'] = { class_type: 'CheckpointLoaderSimple', inputs: { ckpt_name: modelB }, _meta: { title: 'Model B' } };
+
+        // Merge node
+        const isBlock = currentSubMode === 'block';
+        if (!isBlock) {
+            const r = parseFloat(document.getElementById('simple-ratio').value);
+            wf['merge'] = { class_type: 'ModelMergeSimple', inputs: { ratio: r, model1: ['m1',0], model2: ['m2',0] }, _meta: { title: 'ModelMergeSimple' } };
+        } else {
+            const blockInputs = { model2: ['m2',0] };
+            for (const b of SDXL_BLOCKS) {
+                let val;
+                if (currentTab === 'advanced') {
+                    val = parseFloat(document.getElementById(`badv-${b}`)?.value || 1);
+                } else {
+                    // map block to group
+                    let group = 'style';
+                    for (const [g, blocks] of Object.entries(BLOCK_GROUPS)) {
+                        if (blocks.includes(b)) { group = g; break; }
+                    }
+                    val = parseFloat(document.getElementById(`bsimple-${group}`)?.value || 0.5);
+                }
+                blockInputs[b] = val;
+            }
+            // ModelMergeSDXL uses model1 as first positional input
+            blockInputs['model1'] = ['m1', 0];
+            // rearrange so model1/model2 come first
+            const ordered = { model1: blockInputs.model1, model2: blockInputs.model2 };
+            for (const b of SDXL_BLOCKS) ordered[b] = blockInputs[b];
+            wf['merge'] = { class_type: 'ModelMergeSDXL', inputs: ordered, _meta: { title: 'ModelMergeSDXL' } };
+        }
+
+        // CLIP merge
+        wf['clipmerge'] = { class_type: 'CLIPMergeSimple', inputs: { ratio: clipRatio, clip1: ['m1',1], clip2: ['m2',1] }, _meta: { title: 'CLIPMergeSimple' } };
+
+        // Merged model output (after optional DMD2 LoRA)
+        let modelRef   = ['merge', 0];
+        let clipRef    = ['clipmerge', 0];
+
+        if (doDmd2 && dmd2Lora) {
+            wf['dmd2'] = { class_type: 'LoraLoader', inputs: { lora_name: dmd2Lora, strength_model: 1.0, strength_clip: 1.0, model: modelRef, clip: clipRef }, _meta: { title: 'DMD2 LoRA' } };
+            modelRef = ['dmd2', 0];
+            clipRef  = ['dmd2', 1];
+        }
+
+        const vaeRef = vaeFrom === 'a' ? ['m1', 2] : ['m2', 2];
+
+        // Save checkpoint
+        if (doSave) {
+            wf['saveckpt'] = { class_type: 'CheckpointSave', inputs: { filename_prefix: `checkpoints/${ckptName}`, model: modelRef, clip: clipRef, vae: vaeRef }, _meta: { title: 'Save Checkpoint' } };
+        }
+
+        if (!doPreview) {
+            // Dummy empty latent + KSampler-less just to trigger save — or just stop here
+            if (!doSave) { alert('Kein Preview und kein Save aktiviert — nichts zu tun.'); return null; }
+            return wf;
+        }
+
+        // Preview nodes
+        wf['pos'] = { class_type: 'CLIPTextEncode', inputs: { text: posPrompt, clip: clipRef }, _meta: { title: 'Positive Prompt' } };
+        wf['neg'] = { class_type: 'CLIPTextEncode', inputs: { text: 'worst quality, bad quality, blurry, lowres', clip: clipRef }, _meta: { title: 'Negative Prompt' } };
+        wf['lat'] = { class_type: 'EmptyLatentImage', inputs: { width: 1024, height: 1024, batch_size: 1 }, _meta: { title: 'Latent' } };
+        const ksSteps = doDmd2 ? 8   : 20;
+        const ksCfg   = doDmd2 ? 1.3 : 7;
+        const seed = parseInt(document.getElementById('preview-seed').value) || 1;
+        wf['ks']  = { class_type: 'KSampler', inputs: { seed: seed, steps: ksSteps, cfg: ksCfg, sampler_name: 'euler_ancestral', scheduler: 'karras', denoise: 1, model: modelRef, positive: ['pos',0], negative: ['neg',0], latent_image: ['lat',0] }, _meta: { title: 'KSampler' } };
+
+        let diffRef = modelRef;
+        if (doDmd2) {
+            if (dmd2Lora) {
+                // LoRA already inserted above, DifferentialDiffusion on top
+            }
+            wf['diff'] = { class_type: 'DifferentialDiffusion', inputs: { strength: 1, model: modelRef }, _meta: { title: 'DifferentialDiffusion' } };
+            diffRef = ['diff', 0];
+            wf['ks'].inputs.model = diffRef;
+        }
+
+        wf['vdec'] = { class_type: 'VAEDecode', inputs: { samples: ['ks',0], vae: vaeRef }, _meta: { title: 'VAE Decode' } };
+
+        if (doFace) {
+            wf['face_det']  = { class_type: 'UltralyticsDetectorProvider', inputs: { model_name: 'bbox/face_yolov8m.pt' }, _meta: { title: 'Face Detector' } };
+            wf['sam_loader'] = { class_type: 'SAMLoader', inputs: { model_name: 'sam_vit_b_01ec64.pth', device_mode: 'AUTO' }, _meta: { title: 'SAM Loader' } };
+            wf['face'] = {
+                class_type: 'FaceDetailer',
+                inputs: {
+                    guide_size: 512, guide_size_for: true, max_size: 1024,
+                    seed: seed, steps: ksSteps, cfg: ksCfg,
+                    sampler_name: 'euler_ancestral', scheduler: 'karras', denoise: 0.5,
+                    feather: 5, noise_mask: true, force_inpaint: true,
+                    bbox_threshold: 0.5, bbox_dilation: 10, bbox_crop_factor: 3,
+                    sam_detection_hint: 'center-1', sam_dilation: 0, sam_threshold: 0.93,
+                    sam_bbox_expansion: 0, sam_mask_hint_threshold: 0.7, sam_mask_hint_use_negative: 'False',
+                    drop_size: 10, wildcard: '', cycle: 1, inpaint_model: false, noise_mask_feather: 27,
+                    tiled_encode: false, tiled_decode: false,
+                    image: ['vdec', 0], model: modelRef, clip: clipRef, vae: vaeRef,
+                    positive: ['pos', 0], negative: ['neg', 0],
+                    bbox_detector: ['face_det', 0], sam_model_opt: ['sam_loader', 0]
+                },
+                _meta: { title: 'FaceDetailer' }
+            };
+            wf['saveimg'] = { class_type: 'SaveImage', inputs: { filename_prefix: 'merger_preview_', images: ['face', 0] }, _meta: { title: 'Save Image' } };
+        } else {
+            wf['saveimg'] = { class_type: 'SaveImage', inputs: { filename_prefix: 'merger_preview_', images: ['vdec', 0] }, _meta: { title: 'Save Image' } };
+        }
+
+        return wf;
+    }
+
+    // ── Run Merge ─────────────────────────────────────────────────────────────
+    async function runMerge() {
+        const wf = buildWorkflow();
+        if (!wf) return;
+
+        const base     = document.getElementById('comfy-url').value.trim();
+        const clientId = crypto.randomUUID();
+        const btn      = document.getElementById('run-btn');
+        btn.disabled   = true;
+        setStatus('Submitting...', 'active');
+        lastImageB64   = null;
+
+        try {
+            const resp = await fetch(`${base}/prompt`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ prompt: wf, client_id: clientId })
+            });
+            if (!resp.ok) throw new Error(await resp.text());
+            const d      = await resp.json();
+            const prompt_id = d.prompt_id;
+            setStatus('In Queue...', 'active');
+            await pollResult(base, prompt_id, clientId);
+        } catch(e) {
+            setStatus('Fehler: ' + e.message, 'error');
+            btn.disabled = false;
+        }
+    }
+
+    async function pollResult(base, prompt_id, clientId) {
+        const btn = document.getElementById('run-btn');
+        let attempts = 0;
+        const interval = setInterval(async () => {
+            attempts++;
+            try {
+                const r = await fetch(`${base}/history/${prompt_id}`);
+                const d = await r.json();
+                if (!d[prompt_id]) return; // not done yet
+                clearInterval(interval);
+                const outputs = d[prompt_id]?.outputs || {};
+                // Find SaveImage output
+                for (const nodeId of Object.keys(outputs)) {
+                    const images = outputs[nodeId]?.images || [];
+                    for (const img of images) {
+                        if (img.type === 'output') {
+                            const imgUrl = `${base}/view?filename=${img.filename}&subfolder=${img.subfolder || ''}&type=output`;
+                            const imgResp = await fetch(imgUrl);
+                            const blob    = await imgResp.blob();
+                            const reader  = new FileReader();
+                            reader.onload = async (e) => {
+                                const b64 = e.target.result.split(',')[1];
+                                lastImageB64 = b64;
+                                showPreview(e.target.result);
+                                // Save to gallery/merges
+                                const mA = (document.getElementById('model-a').value || 'model').split('\\').pop().split('/').pop();
+                                const mB = (document.getElementById('model-b').value || 'model').split('\\').pop().split('/').pop();
+                                await fetch('/api/merger/save-image', {
+                                    method: 'POST',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({ image_b64: b64, name: `${mA.replace('.safetensors','')}_x_${mB.replace('.safetensors','')}` })
+                                });
+                                setStatus('✓ Fertig — in Gallery/merges gespeichert', 'done');
+                                btn.disabled = false;
+                            };
+                            reader.readAsDataURL(blob);
+                            return;
+                        }
+                    }
+                }
+                setStatus('✓ Fertig (kein Preview-Bild)', 'done');
+                btn.disabled = false;
+            } catch(e) {
+                if (attempts > 120) {
+                    clearInterval(interval);
+                    setStatus('Timeout', 'error');
+                    btn.disabled = false;
+                }
+            }
+        }, 2000);
+    }
+
+    function showPreview(src) {
+        document.getElementById('preview-box').innerHTML = `<img src="${src}" alt="Preview">`;
+    }
+
+    function setStatus(text, state) {
+        document.getElementById('status-text').textContent = text;
+        const dot = document.getElementById('status-dot');
+        dot.className = 'mg-status-dot' + (state ? ' ' + state : '');
+    }
+
+    // ── App Header ────────────────────────────────────────────────────────────
+    async function loadAppHeader() {
+        try {
+            const [ar, lr] = await Promise.all([fetch('/api/personalities/active'), fetch('/api/personalities')]);
+            const { active } = await ar.json();
+            const { personalities } = await lr.json();
+            const p = personalities.find(x => x.name === active);
+            const nameEl = document.getElementById('app-name');
+            if (nameEl) nameEl.textContent = `${active} — AI Assistant`;
+            const logoEl = document.getElementById('app-logo');
+            if (logoEl && p?.has_logo) logoEl.src = `/api/personalities/${active}/logo`;
+        } catch(e) {}
+    }
+</script>
+<script src="frontend/navigation.js"></script>
+</body>
+</html>

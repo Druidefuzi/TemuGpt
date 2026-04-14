@@ -1,0 +1,806 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Assistant</title>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="frontend/style.css">
+    <style>
+        * { box-sizing: border-box; }
+
+        body {
+            margin: 0;
+            font-family: 'Syne', sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            height: 100vh;
+            height: 100dvh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        /* ── Header ── */
+        .ref-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 0 20px;
+            height: 52px;
+            border-bottom: 1px solid var(--border);
+            background: var(--surface);
+            flex-shrink: 0;
+        }
+        .ref-back-btn {
+            background: none;
+            border: 1px solid var(--border);
+            color: var(--muted);
+            border-radius: 8px;
+            padding: 5px 12px;
+            font-family: 'Syne', sans-serif;
+            font-size: 0.78rem;
+            cursor: pointer;
+            transition: all .15s;
+            text-decoration: none;
+        }
+        .ref-back-btn:hover { border-color: var(--accent); color: var(--text); }
+        .ref-header h1 { font-size: 1rem; font-weight: 700; margin: 0; }
+        .ref-header-badge {
+            font-size: 0.7rem;
+            background: rgba(108,99,255,.15);
+            border: 1px solid var(--accent);
+            color: var(--accent);
+            border-radius: 20px;
+            padding: 2px 10px;
+        }
+
+        /* ── Layout ── */
+        .ref-layout {
+            display: grid;
+            grid-template-columns: 260px 1fr;
+            flex: 1;
+            overflow: hidden;
+        }
+
+        /* ── Sidebar ── */
+        .ref-sidebar {
+            border-right: 1px solid var(--border);
+            background: var(--surface);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .ref-sidebar-top {
+            padding: 14px 14px 10px;
+            border-bottom: 1px solid var(--border);
+            flex-shrink: 0;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .ref-model-tabs {
+            display: flex;
+            gap: 6px;
+        }
+        .ref-model-tab {
+            flex: 1;
+            padding: 7px 10px;
+            border-radius: 8px;
+            border: 1px solid var(--border);
+            background: none;
+            color: var(--muted);
+            font-family: 'Syne', sans-serif;
+            font-size: 0.78rem;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all .15s;
+        }
+        .ref-model-tab.active {
+            background: rgba(108,99,255,.15);
+            border-color: var(--accent);
+            color: var(--accent);
+        }
+
+        .ref-search {
+            width: 100%;
+            height: 34px;
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            color: var(--text);
+            font-family: 'DM Mono', monospace;
+            font-size: 0.8rem;
+            padding: 0 10px;
+            transition: border-color .15s;
+        }
+        .ref-search:focus { outline: none; border-color: var(--accent); }
+        .ref-search::placeholder { color: var(--muted); }
+
+        /* ── Artist List ── */
+        .ref-artist-list {
+            flex: 1;
+            overflow-y: auto;
+            position: relative;
+        }
+
+        #vlist-inner {
+            position: relative;
+            width: 100%;
+        }
+
+        #vlist-items {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            padding: 4px 8px;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .ref-artist-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 9px 10px;
+            border-radius: 8px;
+            border: 1px solid transparent;
+            cursor: pointer;
+            transition: all .12s;
+        }
+        .ref-artist-item:hover { background: rgba(108,99,255,.07); }
+        .ref-artist-item.active {
+            background: rgba(108,99,255,.15);
+            border-color: var(--accent);
+        }
+        .ref-artist-icon {
+            font-size: 1.1rem;
+            flex-shrink: 0;
+        }
+        .ref-artist-info {
+            flex: 1;
+            min-width: 0;
+        }
+        .ref-artist-name {
+            font-size: 0.82rem;
+            font-weight: 700;
+            color: var(--text);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .ref-artist-item.active .ref-artist-name { color: var(--accent); }
+        .ref-artist-count {
+            font-size: 0.68rem;
+            color: var(--muted);
+            font-family: 'DM Mono', monospace;
+            margin-top: 1px;
+        }
+
+        .ref-list-empty {
+            padding: 20px;
+            text-align: center;
+            color: var(--muted);
+            font-size: 0.82rem;
+            line-height: 1.6;
+        }
+        .ref-list-empty span { font-size: 2rem; display: block; margin-bottom: 8px; opacity: .3; }
+
+        /* ── Main Panel ── */
+        .ref-main {
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .ref-main-empty {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            color: var(--muted);
+            gap: 10px;
+            font-size: 0.85rem;
+        }
+        .ref-main-empty span:first-child { font-size: 3rem; opacity: .2; }
+
+        /* ── Artist View ── */
+        .ref-artist-view {
+            display: none;
+            flex-direction: column;
+            flex: 1;
+            overflow: hidden;
+        }
+        .ref-artist-view.visible { display: flex; }
+
+        .ref-artist-header {
+            padding: 14px 20px 12px;
+            border-bottom: 1px solid var(--border);
+            flex-shrink: 0;
+            background: var(--surface);
+        }
+        .ref-artist-header-top {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 8px;
+        }
+        .ref-artist-title {
+            font-size: 1.1rem;
+            font-weight: 800;
+        }
+        .ref-artist-model-badge {
+            font-size: 0.68rem;
+            background: rgba(108,99,255,.12);
+            border: 1px solid var(--accent);
+            color: var(--accent);
+            border-radius: 20px;
+            padding: 2px 9px;
+            font-weight: 700;
+        }
+        .ref-img-count-badge {
+            font-size: 0.7rem;
+            color: var(--muted);
+            font-family: 'DM Mono', monospace;
+            margin-left: auto;
+        }
+
+        .ref-tags-box {
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 8px 12px;
+            font-family: 'DM Mono', monospace;
+            font-size: 0.78rem;
+            color: var(--text);
+            line-height: 1.6;
+            cursor: pointer;
+            transition: border-color .15s;
+            position: relative;
+        }
+        .ref-tags-box:hover { border-color: var(--accent); }
+        .ref-tags-box-label {
+            font-size: 0.62rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: .07em;
+            color: var(--muted);
+            margin-bottom: 4px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .ref-tags-copy-hint {
+            font-size: 0.65rem;
+            color: var(--accent);
+            margin-left: auto;
+            opacity: 0;
+            transition: opacity .15s;
+        }
+        .ref-tags-box:hover .ref-tags-copy-hint { opacity: 1; }
+
+        /* ── Image Grid ── */
+        .ref-images-area {
+            flex: 1;
+            overflow-y: auto;
+            padding: 16px 20px;
+        }
+
+        .ref-images-empty {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 200px;
+            color: var(--muted);
+            font-size: 0.82rem;
+            gap: 8px;
+        }
+        .ref-images-empty span { font-size: 2rem; opacity: .2; }
+
+        .ref-img-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+            gap: 10px;
+        }
+
+        .ref-img-card {
+            border-radius: 10px;
+            overflow: hidden;
+            border: 1px solid var(--border);
+            background: var(--surface);
+            cursor: pointer;
+            transition: border-color .15s, transform .1s;
+        }
+        .ref-img-card:hover {
+            border-color: var(--accent);
+            transform: translateY(-2px);
+        }
+        .ref-img-card img {
+            width: 100%;
+            aspect-ratio: 1;
+            object-fit: cover;
+            display: block;
+        }
+        .ref-img-card-info {
+            padding: 6px 8px;
+            font-family: 'DM Mono', monospace;
+            font-size: 0.65rem;
+            color: var(--muted);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        /* ── Lightbox ── */
+        .ref-lightbox {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,.9);
+            z-index: 1000;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            backdrop-filter: blur(4px);
+        }
+        .ref-lightbox.visible { display: flex; }
+        .ref-lightbox-close {
+            position: absolute;
+            top: 16px; right: 20px;
+            background: none;
+            border: none;
+            color: #fff;
+            font-size: 1.8rem;
+            cursor: pointer;
+            opacity: .7;
+            transition: opacity .15s;
+            z-index: 10;
+        }
+        .ref-lightbox-close:hover { opacity: 1; }
+        .ref-lightbox img {
+            max-width: 90vw;
+            max-height: 75vh;
+            border-radius: 12px;
+            object-fit: contain;
+        }
+        .ref-lightbox-actions {
+            display: flex;
+            gap: 10px;
+            margin-top: 16px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+        .ref-lb-btn {
+            padding: 8px 18px;
+            border-radius: 8px;
+            border: 1px solid var(--border);
+            background: var(--surface);
+            color: var(--text);
+            font-family: 'Syne', sans-serif;
+            font-size: 0.8rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all .15s;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .ref-lb-btn:hover { border-color: var(--accent); color: var(--accent); }
+        .ref-lb-btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+        .ref-lb-btn.primary:hover { opacity: .85; color: #fff; }
+        .ref-lb-btn:disabled { opacity: .4; cursor: not-allowed; }
+        .ref-lb-status {
+            font-size: 0.75rem;
+            color: rgba(255,255,255,.5);
+            margin-top: 8px;
+            min-height: 20px;
+        }
+        .ref-lightbox-name {
+            margin-top: 6px;
+            font-family: 'DM Mono', monospace;
+            font-size: 0.72rem;
+            color: rgba(255,255,255,.4);
+        }
+
+        /* ── Loading ── */
+        .ref-loading {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            color: var(--muted);
+            font-size: 0.82rem;
+            padding: 20px;
+            justify-content: center;
+        }
+
+        @media (max-width: 700px) {
+            .ref-layout { grid-template-columns: 1fr; }
+            .ref-sidebar {
+                border-right: none;
+                border-bottom: 1px solid var(--border);
+                max-height: 220px;
+            }
+        }
+
+        /* ── App Header (shared) ── */
+        .app-header {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            padding: 0 20px;
+            height: 52px;
+            border-bottom: 1px solid var(--border);
+            background: var(--surface);
+            flex-shrink: 0;
+        }
+        .app-brand {
+            display: flex;
+            align-items: center;
+            gap: 9px;
+            text-decoration: none;
+            flex-shrink: 0;
+        }
+        .app-logo {
+            width: 28px;
+            height: 28px;
+            border-radius: 7px;
+            object-fit: cover;
+        }
+        .app-name {
+            font-size: 0.88rem;
+            font-weight: 800;
+            color: var(--text);
+            white-space: nowrap;
+        }
+        .app-nav {
+            display: flex;
+            gap: 5px;
+            align-items: center;
+            margin-left: auto;
+        }
+        .app-tab {
+            background: none;
+            border: 1px solid var(--border);
+            color: var(--muted);
+            border-radius: 8px;
+            padding: 5px 11px;
+            font-family: 'Syne', sans-serif;
+            font-size: 0.77rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all .15s;
+            text-decoration: none;
+            white-space: nowrap;
+        }
+        .app-tab:hover { border-color: var(--accent); color: var(--text); }
+        .app-tab.active { background: rgba(108,99,255,.15); border-color: var(--accent); color: var(--accent); }
+        @media (max-width: 900px) {
+            .app-name { display: none; }
+            .app-tab { padding: 5px 7px; font-size: 0.7rem; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="app-header">
+    <a href="/" class="app-brand">
+        <img src="frontend/assets/logo.png" class="app-logo" id="app-logo" alt="Logo">
+        <span class="app-name" id="app-name">AI Assistant</span>
+    </a>
+</div>
+
+<div class="ref-layout">
+
+    <!-- Sidebar -->
+    <div class="ref-sidebar">
+        <div class="ref-sidebar-top">
+            <div class="ref-model-tabs" id="model-tabs"></div>
+            <input class="ref-search" id="artist-search"
+                   placeholder="🔍 Artist suchen..."
+                   oninput="filterArtists(this.value)">
+        </div>
+        <div class="ref-artist-list" id="artist-list" onscroll="onArtistListScroll()">
+            <div id="vlist-inner">
+                <div id="vlist-items"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main -->
+    <div class="ref-main">
+        <div class="ref-main-empty" id="main-empty">
+            <span>🎨</span>
+            <span>Artist in der Sidebar wählen</span>
+        </div>
+
+        <div class="ref-artist-view" id="artist-view">
+            <div class="ref-artist-header">
+                <div class="ref-artist-header-top">
+                    <div class="ref-artist-title" id="view-artist-name">—</div>
+                    <span class="ref-artist-model-badge" id="view-model-badge">—</span>
+                    <span class="ref-img-count-badge" id="view-img-count">0 Bilder</span>
+                </div>
+            </div>
+            <div class="ref-images-area" id="images-area">
+                <div class="ref-images-empty"><span>🖼️</span><span>Noch keine Bilder generiert</span></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Lightbox -->
+<div class="ref-lightbox" id="lightbox">
+    <button class="ref-lightbox-close" onclick="closeLightbox()">×</button>
+    <img id="lb-img" src="" alt="">
+    <div class="ref-lightbox-actions">
+        <a class="ref-lb-btn" id="lb-download" href="" download>⬇️ Download</a>
+        <button class="ref-lb-btn primary" id="lb-workflow" onclick="extractAndOpenWorkflow()">⚙️ Open in Workflow Editor</button>
+    </div>
+    <div class="ref-lb-status" id="lb-status"></div>
+    <div class="ref-lightbox-name" id="lb-name"></div>
+</div>
+
+<script>
+    let currentModel  = '';
+    let currentArtist = '';
+    let allArtists    = [];
+
+    // ── Init ──────────────────────────────────────────────────────────────────
+
+    async function init() {
+        try {
+            const r = await fetch('/api/reference/models');
+            const d = await r.json();
+            const models = d.models || ['illustrious', 'anima'];
+            renderModelTabs(models);
+            if (models.length) selectModel(models[0]);
+        } catch(e) {
+            document.getElementById('vlist-items').innerHTML =
+                `<div class="ref-list-empty"><span>❌</span>Server nicht erreichbar</div>`;
+        }
+    }
+
+    function renderModelTabs(models) {
+        const tabs = document.getElementById('model-tabs');
+        tabs.innerHTML = models.map(m => `
+            <button class="ref-model-tab" id="tab-${m}" onclick="selectModel('${m}')">
+                ${m.charAt(0).toUpperCase() + m.slice(1)}
+            </button>`).join('');
+    }
+
+    async function selectModel(model) {
+        currentModel  = model;
+        currentArtist = '';
+        document.querySelectorAll('.ref-model-tab').forEach(t =>
+            t.classList.toggle('active', t.id === `tab-${model}`));
+        document.getElementById('artist-search').value = '';
+        document.getElementById('main-empty').style.display = 'flex';
+        document.getElementById('artist-view').classList.remove('visible');
+        await loadArtists(model);
+        // Show all images immediately
+        showImages('');
+    }
+
+    async function loadArtists(model) {
+        document.getElementById('vlist-items').innerHTML =
+            '<div class="ref-loading">↻ Lade...</div>';
+        try {
+            const r = await fetch(`/api/reference/artists?model=${model}`);
+            const d = await r.json();
+            allArtists = d.artists || [];
+            renderArtistList(allArtists);
+        } catch(e) {
+            document.getElementById('vlist-items').innerHTML =
+                '<div class="ref-list-empty"><span>❌</span>Laden fehlgeschlagen</div>';
+        }
+    }
+
+    let _filteredArtists = [];
+    const ITEM_H   = 58;   // item height px (two lines: name + count)
+    const ITEM_GAP = 4;
+    const ROW_H    = ITEM_H + ITEM_GAP;
+    const OVERSCAN = 4;
+    let _scrollRaf = null;
+
+    function renderArtistList(artists) {
+        _filteredArtists = artists;
+        const listEl = document.getElementById('artist-list');
+        listEl.scrollTop = 0;
+        renderVirtualWindow();
+    }
+
+    function renderVirtualWindow() {
+        const items   = _filteredArtists;
+        const total   = items.length;
+        const innerEl = document.getElementById('vlist-inner');
+        const itemsEl = document.getElementById('vlist-items');
+
+        if (!total) {
+            innerEl.style.height = '60px';
+            itemsEl.style.transform = 'translateY(0)';
+            itemsEl.innerHTML = `<div class="ref-list-empty"><span>🎨</span>Keine Artists gefunden</div>`;
+            return;
+        }
+
+        const listEl   = document.getElementById('artist-list');
+        const scrollTop = listEl.scrollTop;
+        const viewH    = listEl.clientHeight;
+
+        innerEl.style.height = `${total * ROW_H}px`;
+
+        const startIdx = Math.max(0, Math.floor(scrollTop / ROW_H) - OVERSCAN);
+        const endIdx   = Math.min(total, Math.ceil((scrollTop + viewH) / ROW_H) + OVERSCAN);
+
+        itemsEl.style.transform = `translateY(${startIdx * ROW_H}px)`;
+        itemsEl.innerHTML = items.slice(startIdx, endIdx).map(a => `
+            <div class="ref-artist-item ${a.name === currentArtist ? 'active' : ''}"
+                 style="height:${ITEM_H}px;flex-shrink:0;overflow:hidden"
+                 onclick="selectArtist('${a.name.replace(/'/g, "\\'")}')">
+                <div class="ref-artist-icon">🎨</div>
+                <div class="ref-artist-info">
+                    <div class="ref-artist-name">${a.name}</div>
+                    ${a.img_count > 0 ? `<div class="ref-artist-count">${a.img_count} Bild${a.img_count !== 1 ? 'er' : ''}</div>` : ''}
+                </div>
+            </div>`).join('');
+    }
+
+    function onArtistListScroll() {
+        if (_scrollRaf) cancelAnimationFrame(_scrollRaf);
+        _scrollRaf = requestAnimationFrame(renderVirtualWindow);
+    }
+
+    function filterArtists(q) {
+        const filtered = q
+            ? allArtists.filter(a => a.name.toLowerCase().includes(q.toLowerCase()))
+            : allArtists;
+        renderArtistList(filtered);
+    }
+
+    // ── Artist Detail ─────────────────────────────────────────────────────────
+
+    async function showImages(artist) {
+        document.getElementById('main-empty').style.display = 'none';
+        document.getElementById('artist-view').classList.add('visible');
+
+        const isAll = !artist;
+        document.getElementById('view-artist-name').textContent = isAll ? 'Alle Artists' : artist;
+        document.getElementById('view-model-badge').textContent = currentModel;
+        document.getElementById('images-area').innerHTML =
+            '<div class="ref-loading">↻ Lade Bilder...</div>';
+
+        try {
+            const url = isAll
+                ? `/api/reference/images?model=${currentModel}`
+                : `/api/reference/images?model=${currentModel}&artist=${encodeURIComponent(artist)}`;
+            const r = await fetch(url);
+            const d = await r.json();
+            const images = d.images || [];
+            document.getElementById('view-img-count').textContent =
+                `${images.length} Bild${images.length !== 1 ? 'er' : ''}`;
+            renderImages(images, isAll);
+        } catch(e) {
+            document.getElementById('images-area').innerHTML =
+                '<div class="ref-images-empty"><span>❌</span>Laden fehlgeschlagen</div>';
+        }
+    }
+
+    async function selectArtist(name) {
+        currentArtist = name;
+        renderVirtualWindow();
+        await showImages(name);
+    }
+
+    function renderImages(images, showArtistLabel = false) {
+        const area = document.getElementById('images-area');
+        if (!images.length) {
+            area.innerHTML = '<div class="ref-images-empty"><span>🖼️</span>Noch keine Bilder generiert</div>';
+            return;
+        }
+        area.innerHTML = `<div class="ref-img-grid">${images.map(img => `
+            <div class="ref-img-card" onclick='openLightbox(${JSON.stringify(img)})'>
+                <img src="${img.url}" alt="${img.filename}" loading="lazy">
+                <div class="ref-img-card-info">${showArtistLabel ? img.artist : img.filename}</div>
+            </div>`).join('')}</div>`;
+    }
+
+    // ── Lightbox ─────────────────────────────────────────────────────────────
+
+    let currentImage = null;
+
+    function openLightbox(img) {
+        currentImage = img;
+        document.getElementById('lb-img').src         = img.url;
+        document.getElementById('lb-download').href   = img.url;
+        document.getElementById('lb-download').download = img.filename;
+        document.getElementById('lb-name').textContent = img.artist ? `${img.artist} / ${img.filename}` : img.filename;
+        document.getElementById('lb-status').textContent = '';
+        document.getElementById('lb-workflow').disabled  = false;
+        document.getElementById('lb-workflow').textContent = '⚙️ Open in Workflow Editor';
+        document.getElementById('lightbox').classList.add('visible');
+    }
+
+    function closeLightbox() {
+        document.getElementById('lightbox').classList.remove('visible');
+        document.getElementById('lb-img').src = '';
+        currentImage = null;
+    }
+
+    async function extractAndOpenWorkflow() {
+        if (!currentImage) return;
+        const status = document.getElementById('lb-status');
+        const btn    = document.getElementById('lb-workflow');
+
+        if (!currentImage.filename.toLowerCase().endsWith('.png')) {
+            status.textContent = '⚠️ Nur PNG-Dateien können Workflows enthalten';
+            return;
+        }
+
+        btn.disabled    = true;
+        btn.textContent = '⏳ Extrahiere...';
+        status.textContent = '';
+
+        try {
+            const imgResp = await fetch(currentImage.url);
+            const blob    = await imgResp.blob();
+            const fd      = new FormData();
+            fd.append('file', blob, currentImage.filename);
+
+            const resp = await fetch('/api/workflows/extract-from-image', { method: 'POST', body: fd });
+            const data = await resp.json();
+
+            if (data.error) {
+                status.textContent = `❌ ${data.error}`;
+                btn.disabled = false;
+                btn.textContent = '⚙️ Open in Workflow Editor';
+                return;
+            }
+
+            sessionStorage.setItem('pending_workflow', JSON.stringify({
+                workflow:   data.workflow,
+                name:       currentImage.filename.replace('.png', ''),
+                source:     data.source,
+                artistMode: { model_type: currentModel, artist_name: currentArtist }
+            }));
+            window.location.href = '/workflows';
+        } catch(e) {
+            status.textContent = `❌ ${e.message}`;
+            btn.disabled = false;
+            btn.textContent = '⚙️ Open in Workflow Editor';
+        }
+    }
+
+    document.addEventListener('keydown', e => { if (e.key === 'Escape') closeLightbox(); });
+    document.getElementById('lightbox').addEventListener('click', e => {
+        if (e.target === e.currentTarget) closeLightbox();
+    });
+
+    init();
+
+    // ── App Header: Personality ──
+    (async function loadAppHeader() {
+        try {
+            const [ar, lr] = await Promise.all([
+                fetch('/api/personalities/active'),
+                fetch('/api/personalities')
+            ]);
+            const { active } = await ar.json();
+            const { personalities } = await lr.json();
+            const p = personalities.find(x => x.name === active);
+            const nameEl = document.getElementById('app-name');
+            if (nameEl) nameEl.textContent = `${active} — AI Assistant`;
+            const logoEl = document.getElementById('app-logo');
+            if (logoEl && p?.has_logo)
+                logoEl.src = `/api/personalities/${active}/logo?t=${Date.now()}`;
+        } catch(e) {}
+    })();
+</script>
+<script src="frontend/navigation.js"></script>
+</body>
+</html>

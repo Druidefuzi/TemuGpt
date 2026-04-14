@@ -1,5 +1,108 @@
 // ─── UI.JS — DOM Helpers, Formatierung, Message-Rendering ───────────────────
 
+// ── TTS STATE ──
+let _ttsEnabled   = false;
+let _ttsVoice     = 'af_bella';
+let _ttsAudio     = null;  // currently playing Audio object
+let _ttsPlayingBtn = null; // button that triggered playback
+
+async function loadTtsState() {
+    try {
+        const r = await fetch('/api/tts/settings');
+        const d = await r.json();
+        _ttsEnabled = d.enabled;
+        _ttsVoice   = d.voice || 'af_bella';
+        // Override with active personality voice if set
+        await applyPersonalityTtsVoice();
+    } catch(e) {}
+}
+
+async function applyPersonalityTtsVoice() {
+    try {
+        const r = await fetch('/api/personalities/active');
+        const d = await r.json();
+        if (!d.active) return;
+        const vr = await fetch(`/api/personalities/${d.active}/tts-voice`);
+        const vd = await vr.json();
+        if (vd.voice) _ttsVoice = vd.voice;
+    } catch(e) {}
+}
+
+async function speakText(text, btn) {
+    if (!_ttsEnabled) return;
+
+    // Stop current playback if any
+    if (_ttsAudio) {
+        _ttsAudio.pause();
+        _ttsAudio = null;
+        if (_ttsPlayingBtn) {
+            _ttsPlayingBtn.textContent = '🔊';
+            _ttsPlayingBtn.classList.remove('tts-playing');
+            _ttsPlayingBtn = null;
+        }
+        if (btn.classList.contains('tts-playing')) return; // toggle off
+    }
+
+    btn.textContent = '⏳';
+    btn.classList.add('tts-playing');
+    _ttsPlayingBtn = btn;
+
+    try {
+        const resp = await fetch('/api/tts/speak', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ text, voice: _ttsVoice })
+        });
+        if (!resp.ok) throw new Error(await resp.text());
+        const blob = await resp.blob();
+        const url  = URL.createObjectURL(blob);
+        _ttsAudio  = new Audio(url);
+        btn.textContent = '🔉';
+        _ttsAudio.onended = () => {
+            btn.textContent = '🔊';
+            btn.classList.remove('tts-playing');
+            _ttsAudio = null;
+            _ttsPlayingBtn = null;
+            URL.revokeObjectURL(url);
+        };
+        _ttsAudio.onerror = () => {
+            btn.textContent = '🔊';
+            btn.classList.remove('tts-playing');
+            _ttsAudio = null;
+            _ttsPlayingBtn = null;
+        };
+        _ttsAudio.play();
+    } catch(e) {
+        btn.textContent = '🔊';
+        btn.classList.remove('tts-playing');
+        _ttsPlayingBtn = null;
+        console.error('[TTS]', e);
+    }
+}
+
+document.addEventListener('DOMContentLoaded', loadTtsState);
+
+// ── ACTIVE PERSONALITY LOGO ──
+let _assistantLogoSrc = 'assets/logo.png';
+
+async function loadAssistantLogo() {
+    try {
+        const r = await fetch('/api/personalities/active');
+        const d = await r.json();
+        if (d.active && d.active !== 'default') {
+            _assistantLogoSrc = `/api/personalities/${d.active}/logo`;
+        } else {
+            _assistantLogoSrc = 'frontend/assets/logo.png';
+        }
+        // Update any existing avatars already in DOM
+        document.querySelectorAll('.msg.assistant .avatar img').forEach(img => {
+            img.src = _assistantLogoSrc;
+        });
+    } catch(e) {}
+}
+
+document.addEventListener('DOMContentLoaded', loadAssistantLogo);
+
 // ── ACCORDION ──
 function toggleAccordion(btn) {
     btn.classList.toggle('open');
@@ -100,11 +203,26 @@ function appendMessage(role, text) {
     const msgs = document.getElementById('messages');
     const div = document.createElement('div');
     div.className = `msg ${role}`;
+    div.dataset.rawText = text;
+    const actions = role === 'user'
+        ? `<div class="msg-actions">
+               <button class="msg-action-btn" onclick="copyMessage(this)" title="Copy">📋</button>
+               <button class="msg-action-btn" onclick="editMessage(this)" title="Edit">✏️</button>
+           </div>`
+        : `<div class="msg-actions">
+               <button class="msg-action-btn tts-btn" onclick="speakText(this.closest('.msg').dataset.rawText, this)" title="Vorlesen" style="display:${_ttsEnabled?'':'none'}">🔊</button>
+               <button class="msg-action-btn" onclick="copyMessage(this)" title="Copy">📋</button>
+           </div>`;
     div.innerHTML = `
-        <div class="avatar">${role === 'user' ? '👤' : '🤖'}</div>
-        <div class="bubble">${formatText(text)}</div>
-    `;
+    <div class="avatar">
+        ${role === 'user' ? '<img src="frontend/assets/user.png" alt="User">' : `<img src="${_assistantLogoSrc}" alt="Assistant">`}
+    </div>
+    <div class="bubble">
+        ${formatText(text)}${actions}
+    </div>
+`;
     msgs.appendChild(div);
+    highlightCode(div);
     msgs.scrollTop = msgs.scrollHeight;
 }
 
@@ -116,7 +234,9 @@ function appendDocumentMessage(data) {
     const div = document.createElement('div');
     div.className = 'msg assistant';
     div.innerHTML = `
-        <div class="avatar">🤖</div>
+        <div class="avatar">
+            <img src="${_assistantLogoSrc}" alt="Assistant">
+        </div>
         <div class="bubble">
             ${formatText(data.message)}
             <div class="download-card">
@@ -141,7 +261,7 @@ function appendThinking() {
     div.className = 'msg assistant thinking';
     div.id = id;
     div.innerHTML = `
-        <div class="avatar">🤖</div>
+        <div class="avatar"><img src="${_assistantLogoSrc}" alt="Assistant"></div>>
         <div class="bubble">
             <div class="dots"><span></span><span></span><span></span></div>
             Denkt nach...
@@ -165,4 +285,10 @@ function toggleReasoning(id, btn) {
 function toggleThinkingBlock(id, btn) {
     document.getElementById(id).classList.toggle('visible');
     btn.classList.toggle('open');
+}
+// ── TTS: update button visibility on settings change ──
+function refreshTtsButtons() {
+    document.querySelectorAll('.tts-btn').forEach(btn => {
+        btn.style.display = _ttsEnabled ? '' : 'none';
+    });
 }

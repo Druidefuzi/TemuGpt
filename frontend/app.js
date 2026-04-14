@@ -79,8 +79,6 @@ document.getElementById('system-prompt-modal').addEventListener('click', functio
 });
 
 // ── INIT ──
-fetch('/api/thinking/status').then(r => r.json()).then(d => updateThinkBtn(d.enabled));
-fetch('/api/research/status').then(r => r.json()).then(d => updateResearchBtn(d.enabled));
 loadKnowledge();
 loadModels();
 loadChatHistory();

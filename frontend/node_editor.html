@@ -1,0 +1,687 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Assistant</title>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="frontend/style.css">
+    <style>
+* { box-sizing: border-box; }
+body {
+    margin: 0; font-family: 'Syne', sans-serif;
+    background: var(--bg); color: var(--text);
+    height: 100vh; height: 100dvh;
+    display: flex; flex-direction: column; overflow: hidden;
+}
+
+/* ── Header ── */
+.ne-header {
+    display: flex; align-items: center; gap: 12px;
+    padding: 0 20px; height: 52px;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface); flex-shrink: 0;
+}
+.ne-back-btn {
+    background: none; border: 1px solid var(--border);
+    color: var(--muted); border-radius: 8px;
+    padding: 5px 12px; font-family: 'Syne', sans-serif;
+    font-size: 0.78rem; cursor: pointer; transition: all .15s;
+    text-decoration: none;
+}
+.ne-back-btn:hover { border-color: var(--accent); color: var(--text); }
+.ne-header h1 { font-size: 1rem; font-weight: 700; margin: 0; }
+.ne-badge {
+    font-size: 0.7rem; background: rgba(108,99,255,.15);
+    border: 1px solid var(--accent); color: var(--accent);
+    border-radius: 20px; padding: 2px 10px;
+}
+.ne-header-right { margin-left: auto; display: flex; gap: 8px; align-items: center; }
+.ne-save-input {
+    height: 32px; padding: 0 10px;
+    background: var(--bg); border: 1px solid var(--border);
+    border-radius: 8px; color: var(--text);
+    font-family: 'DM Mono', monospace; font-size: 0.78rem;
+    width: 180px; transition: border-color .15s;
+}
+.ne-save-input:focus { outline: none; border-color: var(--accent); }
+.ne-save-btn {
+    height: 32px; padding: 0 14px; border-radius: 8px;
+    border: 1px solid var(--accent); background: rgba(108,99,255,.15);
+    color: var(--accent); font-family: 'Syne', sans-serif;
+    font-size: 0.8rem; font-weight: 700; cursor: pointer;
+    transition: all .15s; white-space: nowrap;
+}
+.ne-save-btn:hover { background: var(--accent); color: #fff; }
+.ne-save-btn.ok { background: rgba(50,200,100,.2); border-color: #32c864; color: #32c864; }
+
+/* ── Layout ── */
+.ne-layout {
+    display: flex; flex: 1; overflow: hidden;
+}
+
+/* ── Sidebar ── */
+.ne-sidebar {
+    width: 200px; flex-shrink: 0;
+    border-right: 1px solid var(--border);
+    background: var(--surface);
+    display: flex; flex-direction: column;
+    overflow: hidden;
+}
+.ne-sidebar-header {
+    padding: 12px; font-size: 0.68rem; font-weight: 700;
+    text-transform: uppercase; letter-spacing: .08em;
+    color: var(--muted); border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+}
+.ne-wf-list { flex: 1; overflow-y: auto; padding: 6px; }
+.ne-wf-item {
+    padding: 8px 10px; border-radius: 8px; cursor: pointer;
+    font-size: 0.8rem; transition: background .15s;
+    border: 1px solid transparent;
+}
+.ne-wf-item:hover { background: rgba(108,99,255,.08); }
+.ne-wf-item.active {
+    background: rgba(108,99,255,.15);
+    border-color: var(--accent); color: var(--accent);
+}
+.ne-wf-item-name { font-weight: 600; }
+.ne-wf-item-nodes { font-size: 0.68rem; color: var(--muted); margin-top: 2px; }
+
+/* ── Canvas ── */
+.ne-canvas-wrap {
+    flex: 1; overflow: auto; position: relative;
+    background: var(--bg);
+    background-image: radial-gradient(circle, rgba(108,99,255,.08) 1px, transparent 1px);
+    background-size: 24px 24px;
+}
+.ne-canvas {
+    position: relative;
+    padding: 40px;
+    display: flex;
+    gap: 32px;
+    align-items: flex-start;
+    min-height: 100%;
+}
+
+.ne-placeholder {
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    gap: 12px; color: var(--muted); flex: 1;
+    min-height: 400px;
+}
+.ne-placeholder-icon { font-size: 3rem; opacity: 0.3; }
+
+/* ── Columns ── */
+.ne-column {
+    display: flex; flex-direction: column;
+    gap: 20px; flex-shrink: 0; min-width: 260px;
+}
+.ne-column-label {
+    font-size: 0.62rem; font-weight: 700;
+    text-transform: uppercase; letter-spacing: .08em;
+    color: var(--muted); text-align: center;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 4px;
+}
+
+/* ── Node Cards ── */
+.ne-node {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px; overflow: visible;
+    min-width: 260px; max-width: 320px;
+    transition: border-color .15s, box-shadow .15s;
+    position: relative;
+}
+.ne-node:hover {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 1px rgba(108,99,255,.2);
+}
+.ne-node-header {
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--border);
+    background: rgba(108,99,255,.06);
+    border-radius: 12px 12px 0 0;
+}
+.ne-node-title {
+    font-size: 0.82rem; font-weight: 700;
+    color: var(--text); margin-bottom: 2px;
+}
+.ne-node-type {
+    font-size: 0.66rem; font-family: 'DM Mono', monospace;
+    color: var(--accent);
+}
+.ne-node-id {
+    position: absolute; top: 10px; right: 12px;
+    font-size: 0.62rem; font-family: 'DM Mono', monospace;
+    color: var(--muted); background: var(--bg);
+    padding: 1px 6px; border-radius: 10px;
+    border: 1px solid var(--border);
+}
+.ne-node-body { padding: 10px 14px; display: flex; flex-direction: column; gap: 8px; }
+
+/* ── Node Fields ── */
+.ne-field { display: flex; flex-direction: column; gap: 3px; }
+.ne-field-label {
+    font-size: 0.65rem; font-weight: 700;
+    text-transform: uppercase; letter-spacing: .05em;
+    color: var(--muted);
+}
+.ne-field-conn {
+    display: flex; align-items: center; gap: 6px;
+    padding: 5px 8px;
+    background: rgba(108,99,255,.06);
+    border: 1px solid rgba(108,99,255,.2);
+    border-radius: 6px;
+    font-size: 0.72rem; font-family: 'DM Mono', monospace;
+    color: var(--accent);
+}
+.ne-field-conn::before { content: '→'; opacity: 0.6; }
+
+.ne-input-text {
+    width: 100%; background: var(--bg);
+    border: 1px solid var(--border); border-radius: 6px;
+    color: var(--text); font-family: 'DM Mono', monospace;
+    font-size: 0.75rem; padding: 5px 8px;
+    resize: vertical; min-height: 32px;
+    transition: border-color .15s;
+}
+.ne-input-text:focus { outline: none; border-color: var(--accent); }
+
+.ne-input-number {
+    width: 100%; background: var(--bg);
+    border: 1px solid var(--border); border-radius: 6px;
+    color: var(--text); font-family: 'DM Mono', monospace;
+    font-size: 0.78rem; padding: 5px 8px;
+    transition: border-color .15s;
+}
+.ne-input-number:focus { outline: none; border-color: var(--accent); }
+
+.ne-input-select {
+    width: 100%; background: var(--bg);
+    border: 1px solid var(--border); border-radius: 6px;
+    color: var(--text); font-family: 'Syne', sans-serif;
+    font-size: 0.78rem; padding: 5px 8px; cursor: pointer;
+    transition: border-color .15s;
+}
+.ne-input-select:focus { outline: none; border-color: var(--accent); }
+
+.ne-input-toggle {
+    display: flex; align-items: center; gap: 8px;
+}
+.ne-toggle-label { font-size: 0.78rem; color: var(--muted); }
+.ne-checkbox { accent-color: var(--accent); width: 14px; height: 14px; cursor: pointer; }
+
+.ne-slider-row { display: flex; align-items: center; gap: 8px; }
+.ne-slider-row input[type=range] { flex: 1; accent-color: var(--accent); }
+.ne-slider-val {
+    font-size: 0.72rem; font-family: 'DM Mono', monospace;
+    color: var(--text); min-width: 36px; text-align: right;
+}
+
+/* ── SVG connector layer ── */
+.ne-svg-layer {
+    position: absolute;
+    top: 0; left: 0;
+    pointer-events: none;
+    overflow: visible;
+}
+.ne-connector {
+    fill: none;
+    stroke: rgba(108,99,255,.35);
+    stroke-width: 1.5;
+    stroke-dasharray: 4 3;
+}
+
+        /* ── App Header (shared) ── */
+        .app-header {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            padding: 0 20px;
+            height: 52px;
+            border-bottom: 1px solid var(--border);
+            background: var(--surface);
+            flex-shrink: 0;
+        }
+        .app-brand {
+            display: flex;
+            align-items: center;
+            gap: 9px;
+            text-decoration: none;
+            flex-shrink: 0;
+        }
+        .app-logo {
+            width: 28px;
+            height: 28px;
+            border-radius: 7px;
+            object-fit: cover;
+        }
+        .app-name {
+            font-size: 0.88rem;
+            font-weight: 800;
+            color: var(--text);
+            white-space: nowrap;
+        }
+        .app-nav {
+            display: flex;
+            gap: 5px;
+            align-items: center;
+            margin-left: auto;
+        }
+        .app-tab {
+            background: none;
+            border: 1px solid var(--border);
+            color: var(--muted);
+            border-radius: 8px;
+            padding: 5px 11px;
+            font-family: 'Syne', sans-serif;
+            font-size: 0.77rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all .15s;
+            text-decoration: none;
+            white-space: nowrap;
+        }
+        .app-tab:hover { border-color: var(--accent); color: var(--text); }
+        .app-tab.active { background: rgba(108,99,255,.15); border-color: var(--accent); color: var(--accent); }
+        @media (max-width: 900px) {
+            .app-name { display: none; }
+            .app-tab { padding: 5px 7px; font-size: 0.7rem; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="app-header">
+    <a href="/" class="app-brand">
+        <img src="frontend/assets/logo.png" class="app-logo" id="app-logo" alt="Logo">
+        <span class="app-name" id="app-name">AI Assistant</span>
+    </a>
+    <div class="ne-header-right">
+        <input type="text" class="ne-save-input" id="save-name" placeholder="workflow-name">
+        <button class="ne-save-btn" onclick="saveWorkflow()">💾 Speichern</button>
+    </div>
+</div>
+
+<div class="ne-layout">
+
+    <div class="ne-sidebar">
+        <div class="ne-sidebar-header">📁 Workflows</div>
+        <div class="ne-wf-list" id="wf-list">
+            <div style="padding:12px;color:var(--muted);font-size:0.78rem">Lade...</div>
+        </div>
+    </div>
+
+    <div class="ne-canvas-wrap" id="canvas-wrap">
+        <div class="ne-canvas" id="canvas">
+            <div class="ne-placeholder">
+                <div class="ne-placeholder-icon">🔷</div>
+                <span>Workflow aus der Sidebar auswählen</span>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+<script>
+let currentWorkflow = null;   // raw JSON from server
+let editedValues    = {};     // nodeId → { field → value }
+let samplers        = [];
+let schedulers      = [];
+let nodePositions   = {};     // nodeId → {x, y, w, h} for SVG connectors
+
+// ── Init ─────────────────────────────────────────────────────────────────────
+async function init() {
+    await Promise.all([loadWorkflowList(), loadSamplersSchedulers()]);
+}
+
+async function loadWorkflowList() {
+    const list = document.getElementById('wf-list');
+    try {
+        const r = await fetch('/api/workflows');
+        const d = await r.json();
+        list.innerHTML = '';
+        (d.workflows || []).forEach(w => {
+            const el = document.createElement('div');
+            el.className = 'ne-wf-item';
+            el.innerHTML = `<div class="ne-wf-item-name">${w.display_name}</div>
+                            <div class="ne-wf-item-nodes">${w.node_count} Nodes</div>`;
+            el.onclick = () => loadWorkflow(w.name, el);
+            list.appendChild(el);
+        });
+    } catch(e) {
+        list.innerHTML = `<div style="padding:12px;color:var(--muted);font-size:0.78rem">❌ ${e.message}</div>`;
+    }
+}
+
+async function loadSamplersSchedulers() {
+    try {
+        const r = await fetch('http://127.0.0.1:8188/object_info/KSampler');
+        const d = await r.json();
+        samplers   = d?.KSampler?.input?.required?.sampler_name?.[0] || [];
+        schedulers = d?.KSampler?.input?.required?.scheduler?.[0] || [];
+    } catch(e) {}
+}
+
+async function loadWorkflow(name, el) {
+    document.querySelectorAll('.ne-wf-item').forEach(i => i.classList.remove('active'));
+    el.classList.add('active');
+    const saveNameEl = document.getElementById('save-name');
+    if (saveNameEl) saveNameEl.value = name.replace('.json', '');
+
+    const r = await fetch(`/api/workflows/${name}`);
+    const d = await r.json();
+    currentWorkflow = d.workflow;
+    editedValues    = {};
+    renderWorkflow(currentWorkflow);
+}
+
+// ── Topological sort ──────────────────────────────────────────────────────────
+function topoSort(wf) {
+    // Build dependency map
+    const deps = {};   // nodeId → Set of nodeIds it depends on
+    for (const [id, node] of Object.entries(wf)) {
+        deps[id] = new Set();
+        for (const val of Object.values(node.inputs || {})) {
+            if (Array.isArray(val) && val.length === 2 && wf[String(val[0])]) {
+                deps[id].add(String(val[0]));
+            }
+        }
+    }
+
+    // Kahn's algorithm
+    const indegree = {};
+    const children = {};
+    for (const id of Object.keys(wf)) {
+        indegree[id] = 0;
+        children[id] = [];
+    }
+    for (const [id, depSet] of Object.entries(deps)) {
+        for (const dep of depSet) {
+            children[dep] = children[dep] || [];
+            children[dep].push(id);
+            indegree[id]++;
+        }
+    }
+
+    // Assign column depths via BFS
+    const depth = {};
+    const queue = Object.keys(wf).filter(id => indegree[id] === 0);
+    queue.forEach(id => depth[id] = 0);
+
+    while (queue.length) {
+        const id = queue.shift();
+        for (const child of (children[id] || [])) {
+            depth[child] = Math.max(depth[child] || 0, (depth[id] || 0) + 1);
+            indegree[child]--;
+            if (indegree[child] === 0) queue.push(child);
+        }
+    }
+
+    // Group by depth
+    const columns = {};
+    for (const [id, d] of Object.entries(depth)) {
+        columns[d] = columns[d] || [];
+        columns[d].push(id);
+    }
+    return columns;
+}
+
+// ── Render ────────────────────────────────────────────────────────────────────
+function renderWorkflow(wf) {
+    const canvas = document.getElementById('canvas');
+    canvas.innerHTML = '';
+    nodePositions = {};
+
+    const columns = topoSort(wf);
+    const maxDepth = Math.max(...Object.keys(columns).map(Number));
+
+    // Render columns
+    for (let col = 0; col <= maxDepth; col++) {
+        const ids = columns[col] || [];
+        const colEl = document.createElement('div');
+        colEl.className = 'ne-column';
+        colEl.innerHTML = `<div class="ne-column-label">Step ${col + 1}</div>`;
+
+        ids.forEach(id => {
+            const node = wf[id];
+            const card = buildNodeCard(id, node);
+            colEl.appendChild(card);
+        });
+
+        canvas.appendChild(colEl);
+    }
+
+    // Draw connectors after layout
+    requestAnimationFrame(() => drawConnectors(wf));
+}
+
+function buildNodeCard(id, node) {
+    const ct    = node.class_type || '?';
+    const title = node._meta?.title || ct;
+    const card  = document.createElement('div');
+    card.className = 'ne-node';
+    card.id = `node-${id}`;
+
+    let fieldsHtml = '';
+    for (const [field, val] of Object.entries(node.inputs || {})) {
+        fieldsHtml += buildField(id, field, val, ct);
+    }
+
+    card.innerHTML = `
+        <div class="ne-node-header">
+            <div class="ne-node-title">${title}</div>
+            <div class="ne-node-type">${ct}</div>
+            <div class="ne-node-id">#${id}</div>
+        </div>
+        <div class="ne-node-body">${fieldsHtml}</div>`;
+    return card;
+}
+
+function buildField(nodeId, field, val, classType) {
+    const label = `<div class="ne-field-label">${field}</div>`;
+
+    // Connection reference
+    if (Array.isArray(val) && val.length === 2 && typeof val[0] === 'string' || typeof val[0] === 'number') {
+        const refId = val[0];
+        const refOut = val[1];
+        if (currentWorkflow[String(refId)]) {
+            const refTitle = currentWorkflow[String(refId)]?._meta?.title || currentWorkflow[String(refId)]?.class_type || refId;
+            return `<div class="ne-field">${label}<div class="ne-field-conn">#${refId} ${refTitle} [${refOut}]</div></div>`;
+        }
+    }
+
+    const current = editedValues[nodeId]?.[field] ?? val;
+
+    // Boolean
+    if (typeof val === 'boolean') {
+        return `<div class="ne-field">${label}
+            <div class="ne-input-toggle">
+                <input type="checkbox" class="ne-checkbox" ${current ? 'checked' : ''}
+                    onchange="setValue('${nodeId}','${field}',this.checked)">
+                <span class="ne-toggle-label">${current ? 'true' : 'false'}</span>
+            </div></div>`;
+    }
+
+    // Known enums
+    if (field === 'sampler_name' && samplers.length) {
+        const opts = samplers.map(s => `<option ${s === current ? 'selected' : ''}>${s}</option>`).join('');
+        return `<div class="ne-field">${label}<select class="ne-input-select" onchange="setValue('${nodeId}','${field}',this.value)">${opts}</select></div>`;
+    }
+    if (field === 'scheduler' && schedulers.length) {
+        const opts = schedulers.map(s => `<option ${s === current ? 'selected' : ''}>${s}</option>`).join('');
+        return `<div class="ne-field">${label}<select class="ne-input-select" onchange="setValue('${nodeId}','${field}',this.value)">${opts}</select></div>`;
+    }
+
+    // Number with slider for common fields
+    if (typeof val === 'number') {
+        const isSlider = ['cfg','denoise','strength_model','strength_clip','spectrum_lam','spectrum_w'].includes(field);
+        const isStep   = ['steps','width','height','batch_size','seed'].includes(field);
+        if (isSlider) {
+            const max = field === 'cfg' ? 20 : 2;
+            return `<div class="ne-field">${label}
+                <div class="ne-slider-row">
+                    <input type="range" min="0" max="${max}" step="0.01" value="${current}"
+                        oninput="this.nextElementSibling.textContent=(+this.value).toFixed(2); setValue('${nodeId}','${field}',+this.value)">
+                    <span class="ne-slider-val">${(+current).toFixed(2)}</span>
+                </div></div>`;
+        }
+        return `<div class="ne-field">${label}
+            <input type="number" class="ne-input-number" value="${current}"
+                step="${isStep ? 1 : 'any'}"
+                onchange="setValue('${nodeId}','${field}',+this.value)"></div>`;
+    }
+
+    // String
+    if (typeof val === 'string') {
+        const isLong = val.length > 60 || field === 'text';
+        if (isLong) {
+            const escaped = (current || '').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+            return `<div class="ne-field">${label}
+                <textarea class="ne-input-text" rows="${Math.min(6, Math.max(2, (current+'').split('\n').length))}"
+                    onchange="setValue('${nodeId}','${field}',this.value)">${escaped}</textarea></div>`;
+        }
+        return `<div class="ne-field">${label}
+            <input type="text" class="ne-input-text" value="${(current||'').replace(/"/g,'&quot;')}"
+                onchange="setValue('${nodeId}','${field}',this.value)"></div>`;
+    }
+
+    // Fallback
+    return `<div class="ne-field">${label}
+        <input type="text" class="ne-input-text" value="${JSON.stringify(current).replace(/"/g,'&quot;')}"
+            onchange="setValue('${nodeId}','${field}',this.value)"></div>`;
+}
+
+// ── SVG Connectors ────────────────────────────────────────────────────────────
+function drawConnectors(wf) {
+    const wrap = document.getElementById('canvas-wrap');
+    const canvas = document.getElementById('canvas');
+    document.getElementById('ne-svg')?.remove();
+
+    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    svg.id = 'ne-svg';
+    svg.classList.add('ne-svg-layer');
+    svg.style.width  = canvas.scrollWidth + 'px';
+    svg.style.height = canvas.scrollHeight + 'px';
+    canvas.prepend(svg);
+
+    const canvasRect = canvas.getBoundingClientRect();
+    const scrollX    = wrap.scrollLeft;
+    const scrollY    = wrap.scrollTop;
+
+    for (const [toId, node] of Object.entries(wf)) {
+        for (const [field, val] of Object.entries(node.inputs || {})) {
+            if (!Array.isArray(val) || val.length !== 2) continue;
+            const fromId = String(val[0]);
+            if (!wf[fromId]) continue;
+
+            const fromEl = document.getElementById(`node-${fromId}`);
+            const toEl   = document.getElementById(`node-${toId}`);
+            if (!fromEl || !toEl) continue;
+
+            const fr = fromEl.getBoundingClientRect();
+            const tr = toEl.getBoundingClientRect();
+
+            const x1 = fr.right  - canvasRect.left + scrollX;
+            const y1 = fr.top    + fr.height / 2 - canvasRect.top + scrollY;
+            const x2 = tr.left   - canvasRect.left + scrollX;
+            const y2 = tr.top    + tr.height / 2 - canvasRect.top + scrollY;
+
+            const dx = Math.abs(x2 - x1) * 0.5;
+            const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+            path.setAttribute('d', `M${x1},${y1} C${x1+dx},${y1} ${x2-dx},${y2} ${x2},${y2}`);
+            path.classList.add('ne-connector');
+            svg.appendChild(path);
+        }
+    }
+}
+
+// ── State ─────────────────────────────────────────────────────────────────────
+function setValue(nodeId, field, value) {
+    if (!editedValues[nodeId]) editedValues[nodeId] = {};
+    editedValues[nodeId][field] = value;
+}
+
+function buildFinalWorkflow() {
+    const wf = JSON.parse(JSON.stringify(currentWorkflow));
+    for (const [nodeId, fields] of Object.entries(editedValues)) {
+        if (!wf[nodeId]) continue;
+        for (const [field, value] of Object.entries(fields)) {
+            wf[nodeId].inputs[field] = value;
+        }
+    }
+    return wf;
+}
+
+// ── Save ──────────────────────────────────────────────────────────────────────
+async function saveWorkflow() {
+    if (!currentWorkflow) return;
+    const name = document.getElementById('save-name').value.trim();
+    if (!name) { document.getElementById('save-name').focus(); return; }
+
+    const btn = document.getElementById('save-btn');
+    btn.disabled = true;
+    btn.textContent = '💾 Speichert...';
+
+    try {
+        const resp = await fetch('/api/workflows/save', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name, workflow: buildFinalWorkflow() })
+        });
+        const d = await resp.json();
+        if (d.ok) {
+            btn.textContent = '✅ Gespeichert';
+            btn.classList.add('ok');
+            loadWorkflowList();
+            setTimeout(() => {
+                btn.textContent = '💾 Speichern';
+                btn.classList.remove('ok');
+                btn.disabled = false;
+            }, 2000);
+        } else {
+            alert('Fehler: ' + (d.error || 'Unbekannt'));
+            btn.disabled = false;
+            btn.textContent = '💾 Speichern';
+        }
+    } catch(e) {
+        alert(e.message);
+        btn.disabled = false;
+        btn.textContent = '💾 Speichern';
+    }
+}
+
+// Redraw connectors on scroll/resize
+document.getElementById('canvas-wrap').addEventListener('scroll', () => {
+    if (currentWorkflow) drawConnectors(currentWorkflow);
+});
+window.addEventListener('resize', () => {
+    if (currentWorkflow) drawConnectors(currentWorkflow);
+});
+
+init();
+
+    // ── App Header: Personality ──
+    (async function loadAppHeader() {
+        try {
+            const [ar, lr] = await Promise.all([
+                fetch('/api/personalities/active'),
+                fetch('/api/personalities')
+            ]);
+            const { active } = await ar.json();
+            const { personalities } = await lr.json();
+            const p = personalities.find(x => x.name === active);
+            const nameEl = document.getElementById('app-name');
+            if (nameEl) nameEl.textContent = `${active} — AI Assistant`;
+            const logoEl = document.getElementById('app-logo');
+            if (logoEl && p?.has_logo)
+                logoEl.src = `/api/personalities/${active}/logo?t=${Date.now()}`;
+        } catch(e) {}
+    })();
+</script>
+<script src="frontend/navigation.js"></script>
+</body>
+</html>

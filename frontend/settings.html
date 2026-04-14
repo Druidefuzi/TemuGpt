@@ -1,0 +1,791 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Assistant</title>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="frontend/style.css">
+    <style>
+        * { box-sizing: border-box; }
+
+        html, body {
+            height: auto !important;
+            overflow-y: auto !important;
+        }
+        body {
+            margin: 0;
+            font-family: 'Syne', sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .st-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 0 24px;
+            height: 52px;
+            border-bottom: 1px solid var(--border);
+            background: var(--surface);
+            flex-shrink: 0;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+        .st-back-btn {
+            background: none;
+            border: 1px solid var(--border);
+            color: var(--muted);
+            border-radius: 8px;
+            padding: 5px 12px;
+            font-family: 'Syne', sans-serif;
+            font-size: 0.78rem;
+            cursor: pointer;
+            transition: all .15s;
+            text-decoration: none;
+        }
+        .st-back-btn:hover { border-color: var(--accent); color: var(--text); }
+        .st-header h1 { font-size: 1rem; font-weight: 700; margin: 0; }
+        .st-header-badge {
+            font-size: 0.7rem;
+            background: rgba(108,99,255,.15);
+            border: 1px solid var(--accent);
+            color: var(--accent);
+            border-radius: 20px;
+            padding: 2px 10px;
+        }
+
+        .st-body {
+            max-width: 780px;
+            margin: 0 auto;
+            padding: 32px 24px 60px;
+            width: 100%;
+        }
+
+        .st-section {
+            margin-bottom: 36px;
+        }
+        .st-section-title {
+            font-size: 0.68rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: .1em;
+            color: var(--muted);
+            margin-bottom: 12px;
+            padding-bottom: 8px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .st-row {
+            display: flex;
+            align-items: flex-start;
+            gap: 16px;
+            padding: 14px 0;
+            border-bottom: 1px solid rgba(255,255,255,.04);
+        }
+        .st-row:last-child { border-bottom: none; }
+
+        .st-row-info {
+            flex: 1;
+            min-width: 0;
+        }
+        .st-row-label {
+            font-size: 0.88rem;
+            font-weight: 700;
+            color: var(--text);
+            margin-bottom: 2px;
+        }
+        .st-row-desc {
+            font-size: 0.74rem;
+            color: var(--muted);
+            line-height: 1.4;
+        }
+
+        .st-row-control {
+            flex-shrink: 0;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        /* Text input */
+        .st-input {
+            height: 36px;
+            min-width: 260px;
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            color: var(--text);
+            font-family: 'DM Mono', monospace;
+            font-size: 0.8rem;
+            padding: 0 12px;
+            transition: border-color .15s;
+        }
+        .st-input:focus { outline: none; border-color: var(--accent); }
+
+        /* Buttons */
+        .st-btn {
+            height: 36px;
+            padding: 0 14px;
+            border-radius: 8px;
+            border: 1px solid var(--border);
+            background: none;
+            color: var(--muted);
+            font-family: 'Syne', sans-serif;
+            font-size: 0.78rem;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all .15s;
+            white-space: nowrap;
+        }
+        .st-btn:hover { border-color: var(--accent); color: var(--accent); }
+        .st-btn.primary {
+            background: var(--accent);
+            border-color: var(--accent);
+            color: #fff;
+        }
+        .st-btn.primary:hover { opacity: .85; }
+        .st-btn.danger:hover { border-color: #f44336; color: #f44336; }
+        .st-btn:disabled { opacity: .4; cursor: not-allowed; }
+
+        .st-save-status {
+            font-size: 0.72rem;
+            color: var(--muted);
+            min-width: 80px;
+        }
+
+        /* Toggle */
+        .st-toggle {
+            position: relative;
+            display: inline-block;
+            width: 44px;
+            height: 24px;
+            flex-shrink: 0;
+        }
+        .st-toggle input { opacity: 0; width: 0; height: 0; }
+        .st-toggle-track {
+            position: absolute;
+            inset: 0;
+            background: var(--border);
+            border-radius: 24px;
+            cursor: pointer;
+            transition: background .2s;
+        }
+        .st-toggle-track::after {
+            content: '';
+            position: absolute;
+            width: 18px; height: 18px;
+            left: 3px; top: 3px;
+            background: #fff;
+            border-radius: 50%;
+            transition: transform .2s;
+        }
+        .st-toggle input:checked + .st-toggle-track { background: var(--accent); }
+        .st-toggle input:checked + .st-toggle-track::after { transform: translateX(20px); }
+
+        /* Prompt style pills */
+        .st-pills {
+            display: flex;
+            gap: 6px;
+        }
+        .st-pill {
+            padding: 6px 14px;
+            border-radius: 20px;
+            border: 1px solid var(--border);
+            background: none;
+            color: var(--muted);
+            font-family: 'Syne', sans-serif;
+            font-size: 0.78rem;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all .15s;
+        }
+        .st-pill.active {
+            background: rgba(108,99,255,.15);
+            border-color: var(--accent);
+            color: var(--accent);
+        }
+
+        /* System prompt textarea */
+        .st-textarea {
+            width: 100%;
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            color: var(--text);
+            font-family: 'DM Mono', monospace;
+            font-size: 0.8rem;
+            padding: 10px 12px;
+            resize: vertical;
+            transition: border-color .15s;
+            line-height: 1.5;
+            min-height: 120px;
+        }
+        .st-textarea:focus { outline: none; border-color: var(--accent); }
+
+        .st-prompt-row {
+            flex-direction: column;
+            align-items: stretch;
+            gap: 10px;
+        }
+        .st-prompt-actions {
+            display: flex;
+            gap: 8px;
+            justify-content: flex-end;
+        }
+
+        .st-status-ok   { color: #4caf50; }
+        .st-status-err  { color: #f44336; }
+
+        /* ── App Header (shared) ── */
+        .app-header {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            padding: 0 20px;
+            height: 52px;
+            border-bottom: 1px solid var(--border);
+            background: var(--surface);
+            flex-shrink: 0;
+        }
+        .app-brand {
+            display: flex;
+            align-items: center;
+            gap: 9px;
+            text-decoration: none;
+            flex-shrink: 0;
+        }
+        .app-logo {
+            width: 28px;
+            height: 28px;
+            border-radius: 7px;
+            object-fit: cover;
+        }
+        .app-name {
+            font-size: 0.88rem;
+            font-weight: 800;
+            color: var(--text);
+            white-space: nowrap;
+        }
+        .app-nav {
+            display: flex;
+            gap: 5px;
+            align-items: center;
+            margin-left: auto;
+        }
+        .app-tab {
+            background: none;
+            border: 1px solid var(--border);
+            color: var(--muted);
+            border-radius: 8px;
+            padding: 5px 11px;
+            font-family: 'Syne', sans-serif;
+            font-size: 0.77rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all .15s;
+            text-decoration: none;
+            white-space: nowrap;
+        }
+        .app-tab:hover { border-color: var(--accent); color: var(--text); }
+        .app-tab.active { background: rgba(108,99,255,.15); border-color: var(--accent); color: var(--accent); }
+        @media (max-width: 900px) {
+            .app-name { display: none; }
+            .app-tab { padding: 5px 7px; font-size: 0.7rem; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="app-header">
+    <a href="/" class="app-brand">
+        <img src="frontend/assets/logo.png" class="app-logo" id="app-logo" alt="Logo">
+        <span class="app-name" id="app-name">AI Assistant</span>
+    </a>
+</div>
+
+<div class="st-body">
+
+    <!-- Verbindungen -->
+    <div class="st-section" id="section-connections">
+        <div class="st-section-title">🔌 Verbindungen</div>
+        <!-- filled dynamically -->
+    </div>
+
+    <!-- Features -->
+    <div class="st-section">
+        <div class="st-section-title">⚡ Features</div>
+
+        <div class="st-row">
+            <div class="st-row-info">
+                <div class="st-row-label">Thinking Mode</div>
+                <div class="st-row-desc">Erweiterte Denkschritte vor der Antwort</div>
+            </div>
+            <div class="st-row-control">
+                <label class="st-toggle">
+                    <input type="checkbox" id="toggle-thinking" onchange="toggleFeature('thinking', this.checked)">
+                    <span class="st-toggle-track"></span>
+                </label>
+            </div>
+        </div>
+
+        <div class="st-row">
+            <div class="st-row-info">
+                <div class="st-row-label">Research Mode</div>
+                <div class="st-row-desc">Tiefere Web-Recherche mit mehreren Schritten</div>
+            </div>
+            <div class="st-row-control">
+                <label class="st-toggle">
+                    <input type="checkbox" id="toggle-research" onchange="toggleFeature('research', this.checked)">
+                    <span class="st-toggle-track"></span>
+                </label>
+            </div>
+        </div>
+
+        <div class="st-row">
+            <div class="st-row-info">
+                <div class="st-row-label">Bildgenerierung</div>
+                <div class="st-row-desc">Bilder via ComfyUI generieren</div>
+            </div>
+            <div class="st-row-control">
+                <label class="st-toggle">
+                    <input type="checkbox" id="toggle-image" onchange="togglePermission('image', this.checked)">
+                    <span class="st-toggle-track"></span>
+                </label>
+            </div>
+        </div>
+
+        <div class="st-row">
+            <div class="st-row-info">
+                <div class="st-row-label">Websuche</div>
+                <div class="st-row-desc">SearXNG Suchanfragen erlauben</div>
+            </div>
+            <div class="st-row-control">
+                <label class="st-toggle">
+                    <input type="checkbox" id="toggle-search" onchange="togglePermission('search', this.checked)">
+                    <span class="st-toggle-track"></span>
+                </label>
+            </div>
+        </div>
+
+        <div class="st-row">
+            <div class="st-row-info">
+                <div class="st-row-label">Dokument-Erstellung</div>
+                <div class="st-row-desc">Dateien erstellen und speichern</div>
+            </div>
+            <div class="st-row-control">
+                <label class="st-toggle">
+                    <input type="checkbox" id="toggle-document" onchange="togglePermission('document', this.checked)">
+                    <span class="st-toggle-track"></span>
+                </label>
+            </div>
+        </div>
+
+        <div class="st-row">
+            <div class="st-row-info">
+                <div class="st-row-label">Knowledge-Schreiben</div>
+                <div class="st-row-desc">In Knowledge-Dateien schreiben</div>
+            </div>
+            <div class="st-row-control">
+                <label class="st-toggle">
+                    <input type="checkbox" id="toggle-knowledge" onchange="togglePermission('knowledge', this.checked)">
+                    <span class="st-toggle-track"></span>
+                </label>
+            </div>
+        </div>
+    </div>
+
+    <!-- TTS -->
+    <div class="st-section">
+        <div class="st-section-title">🔊 Text-to-Speech (Kokoro)</div>
+
+        <div class="st-row">
+            <div class="st-row-info">
+                <div class="st-row-label">TTS aktiviert</div>
+                <div class="st-row-desc">Sprachausgabe über Kokoro-FastAPI</div>
+            </div>
+            <div class="st-row-control">
+                <label class="st-toggle">
+                    <input type="checkbox" id="toggle-tts-enabled" onchange="saveTtsSettings()">
+                    <span class="st-toggle-track"></span>
+                </label>
+            </div>
+        </div>
+
+        <div class="st-row">
+            <div class="st-row-info">
+                <div class="st-row-label">Stimme</div>
+                <div class="st-row-desc">Kokoro Voice Name (z.B. af_bella, bf_emma, af_sky+bf_emma)</div>
+            </div>
+            <div class="st-row-control">
+                <input class="st-input" id="tts-voice-input" value="af_bella"
+                       placeholder="af_bella" style="min-width:200px"
+                       onchange="saveTtsSettings()">
+            </div>
+        </div>
+
+        <div class="st-row">
+            <div class="st-row-info">
+                <div class="st-row-label">Kokoro URL</div>
+                <div class="st-row-desc">Standard: http://localhost:8880</div>
+            </div>
+            <div class="st-row-control">
+                <input class="st-input" id="tts-url-input" value="http://localhost:8880"
+                       placeholder="http://localhost:8880" style="min-width:220px"
+                       onchange="saveTtsSettings()">
+            </div>
+        </div>
+    </div>
+
+    <!-- Personality -->
+    <div class="st-section">
+        <div class="st-section-title">🎭 Personality</div>
+
+        <div class="st-row">
+            <div class="st-row-info">
+                <div class="st-row-label">Personality aktiviert</div>
+                <div class="st-row-desc">Wenn deaktiviert wird immer die Default-Personality verwendet</div>
+            </div>
+            <div class="st-row-control">
+                <label class="st-toggle">
+                    <input type="checkbox" id="toggle-personality-enabled" onchange="savePersonalitySettings()">
+                    <span class="st-toggle-track"></span>
+                </label>
+            </div>
+        </div>
+
+        <div class="st-row">
+            <div class="st-row-info">
+                <div class="st-row-label">Einfluss auf Prompt-/Bildgenerierung</div>
+                <div class="st-row-desc">Personality beeinflusst die Interpretation im Creator und Prompt-Generator</div>
+            </div>
+            <div class="st-row-control">
+                <label class="st-toggle">
+                    <input type="checkbox" id="toggle-personality-prompt" onchange="savePersonalitySettings()">
+                    <span class="st-toggle-track"></span>
+                </label>
+            </div>
+        </div>
+
+        <div class="st-row">
+            <div class="st-row-info">
+                <div class="st-row-label">Einfluss auf Kritik</div>
+                <div class="st-row-desc">Personality gibt Feedback im eigenen Ton (Creator-Critic & Workflow-Critic)</div>
+            </div>
+            <div class="st-row-control">
+                <label class="st-toggle">
+                    <input type="checkbox" id="toggle-personality-critic" onchange="savePersonalitySettings()">
+                    <span class="st-toggle-track"></span>
+                </label>
+            </div>
+        </div>
+
+        <div class="st-row">
+            <div class="st-row-info">
+                <div class="st-row-label">Einfluss auf Songtext</div>
+                <div class="st-row-desc">Personality beeinflusst den generierten Songtext und Caption im Song Generator</div>
+            </div>
+            <div class="st-row-control">
+                <label class="st-toggle">
+                    <input type="checkbox" id="toggle-personality-music" onchange="savePersonalitySettings()">
+                    <span class="st-toggle-track"></span>
+                </label>
+            </div>
+        </div>
+    </div>
+
+    <!-- Prompt -->
+    <div class="st-section">
+        <div class="st-section-title">Prompt</div>
+
+        <div class="st-row">
+            <div class="st-row-info">
+                <div class="st-row-label">Prompt Style</div>
+                <div class="st-row-desc">Ausgabeformat für Bild-Prompts</div>
+            </div>
+            <div class="st-row-control">
+                <div class="st-pills">
+                    <button class="st-pill" id="pill-danbooru" onclick="setPromptStyle('danbooru')">Danbooru</button>
+                    <button class="st-pill" id="pill-mixed"    onclick="setPromptStyle('mixed')">Mixed</button>
+                    <button class="st-pill" id="pill-natural"  onclick="setPromptStyle('natural')">Natural</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="st-row st-prompt-row">
+            <div class="st-row-info">
+                <div class="st-row-label">System Prompt</div>
+                <div class="st-row-desc">Benutzerdefinierter System-Prompt. Leer lassen für Standard.</div>
+            </div>
+            <textarea class="st-textarea" id="system-prompt-input"
+                      placeholder="Standard-Prompt wird verwendet wenn leer..."></textarea>
+            <div class="st-prompt-actions">
+                <span id="prompt-status" class="st-save-status"></span>
+                <button class="st-btn danger" onclick="resetSystemPrompt()">↺ Reset</button>
+                <button class="st-btn primary" onclick="saveSystemPrompt()">💾 Speichern</button>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+<script>
+    // ── Config Settings (DB-backed) ───────────────────────────────────────────
+
+    async function loadConfigSettings() {
+        try {
+            const r = await fetch('/api/config/settings');
+            const d = await r.json();
+            const byCategory = {};
+            for (const s of d.settings) {
+                (byCategory[s.category] = byCategory[s.category] || []).push(s);
+            }
+            const sec = document.getElementById('section-connections');
+            const inner = Object.entries(byCategory).map(([cat, items]) =>
+                items.map(s => buildConfigRow(s)).join('')
+            ).join('');
+            sec.querySelector('.st-section-title').insertAdjacentHTML('afterend', inner);
+        } catch(e) {
+            console.error('Config load failed:', e);
+        }
+    }
+
+    function buildConfigRow(s) {
+        return `
+        <div class="st-row" id="row-${s.key}">
+            <div class="st-row-info">
+                <div class="st-row-label">${s.label}</div>
+                <div class="st-row-desc">${s.description} <span style="color:var(--muted);font-family:'DM Mono',monospace;font-size:0.7rem">[${s.key}]</span></div>
+            </div>
+            <div class="st-row-control" style="flex-direction:column;align-items:flex-end;gap:6px">
+                <div style="display:flex;gap:8px;align-items:center">
+                    <input class="st-input" id="input-${s.key}" value="${escHtml(s.value)}"
+                           onkeydown="if(event.key==='Enter') saveConfig('${s.key}')">
+                    <button class="st-btn primary" onclick="saveConfig('${s.key}')">💾</button>
+                    <button class="st-btn danger" onclick="resetConfig('${s.key}')" title="Auf Standard zurücksetzen">↺</button>
+                </div>
+                <span id="status-${s.key}" class="st-save-status" style="font-size:0.68rem;color:var(--muted)">
+                    Standard: <code style="font-family:'DM Mono',monospace">${escHtml(s.default_value)}</code>
+                </span>
+            </div>
+        </div>`;
+    }
+
+    async function saveConfig(key) {
+        const input  = document.getElementById(`input-${key}`);
+        const status = document.getElementById(`status-${key}`);
+        const value  = input.value.trim();
+        if (!value) return;
+        try {
+            const r = await fetch(`/api/config/settings/${key}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ value })
+            });
+            const d = await r.json();
+            if (d.ok) {
+                status.innerHTML = '<span class="st-status-ok">✓ Gespeichert</span>';
+                setTimeout(() => status.innerHTML = `Standard: <code style="font-family:'DM Mono',monospace">${escHtml(d.value)}</code>`, 2000);
+            } else {
+                status.innerHTML = `<span class="st-status-err">❌ ${d.error}</span>`;
+            }
+        } catch(e) {
+            document.getElementById(`status-${key}`).innerHTML = `<span class="st-status-err">❌ ${e.message}</span>`;
+        }
+    }
+
+    async function resetConfig(key) {
+        const status = document.getElementById(`status-${key}`);
+        try {
+            const r = await fetch(`/api/config/settings/${key}/reset`, { method: 'POST' });
+            const d = await r.json();
+            if (d.ok) {
+                document.getElementById(`input-${key}`).value = d.value;
+                status.innerHTML = '<span class="st-status-ok">✓ Zurückgesetzt</span>';
+                setTimeout(() => status.innerHTML = `Standard: <code style="font-family:'DM Mono',monospace">${escHtml(d.value)}</code>`, 2000);
+            }
+        } catch(e) {
+            status.innerHTML = `<span class="st-status-err">❌ ${e.message}</span>`;
+        }
+    }
+
+    // ── Feature Toggles ───────────────────────────────────────────────────────
+
+    async function loadToggles() {
+        try {
+            const [thinkR, researchR, permR, styleR, promptR] = await Promise.all([
+                fetch('/api/thinking/status'),
+                fetch('/api/research/status'),
+                fetch('/api/permissions/status'),
+                fetch('/api/prompt-style'),
+                fetch('/api/system-prompt')
+            ]);
+            const think   = await thinkR.json();
+            const research = await researchR.json();
+            const perm    = await permR.json();
+            const style   = await styleR.json();
+            const prompt  = await promptR.json();
+
+            document.getElementById('toggle-thinking').checked  = think.enabled;
+            document.getElementById('toggle-research').checked  = research.enabled;
+            document.getElementById('toggle-image').checked     = perm.image;
+            document.getElementById('toggle-search').checked    = perm.search;
+            document.getElementById('toggle-document').checked  = perm.document;
+            document.getElementById('toggle-knowledge').checked = perm.knowledge;
+
+            setActivePill(style.style);
+            document.getElementById('system-prompt-input').value = prompt.prompt || '';
+        } catch(e) {
+            console.error('Toggle load failed:', e);
+        }
+    }
+
+    async function toggleFeature(feature, enabled) {
+        const endpoints = { thinking: '/api/thinking/toggle', research: '/api/research/toggle' };
+        await fetch(endpoints[feature], { method: 'POST' });
+    }
+
+    async function togglePermission(perm, enabled) {
+        await fetch('/api/permissions/toggle', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ permission: perm })
+        });
+    }
+
+    // ── Prompt Style ──────────────────────────────────────────────────────────
+
+    function setActivePill(style) {
+        document.querySelectorAll('.st-pill').forEach(p =>
+            p.classList.toggle('active', p.id === `pill-${style}`));
+    }
+
+    async function setPromptStyle(style) {
+        setActivePill(style);
+        await fetch('/api/prompt-style', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ style })
+        });
+    }
+
+    // ── System Prompt ─────────────────────────────────────────────────────────
+
+    async function saveSystemPrompt() {
+        const prompt = document.getElementById('system-prompt-input').value.trim();
+        const status = document.getElementById('prompt-status');
+        try {
+            await fetch('/api/system-prompt', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ prompt })
+            });
+            status.innerHTML = '<span class="st-status-ok">✓ Gespeichert</span>';
+            setTimeout(() => status.textContent = '', 2000);
+        } catch(e) {
+            status.innerHTML = `<span class="st-status-err">❌ ${e.message}</span>`;
+        }
+    }
+
+    async function resetSystemPrompt() {
+        const status = document.getElementById('prompt-status');
+        try {
+            const r = await fetch('/api/system-prompt/reset', { method: 'POST' });
+            const d = await r.json();
+            document.getElementById('system-prompt-input').value = d.prompt || '';
+            status.innerHTML = '<span class="st-status-ok">✓ Zurückgesetzt</span>';
+            setTimeout(() => status.textContent = '', 2000);
+        } catch(e) {
+            status.innerHTML = `<span class="st-status-err">❌ ${e.message}</span>`;
+        }
+    }
+
+    // ── TTS Settings ──────────────────────────────────────────────────────────
+
+    async function loadTtsSettings() {
+        try {
+            const r = await fetch('/api/tts/settings');
+            const d = await r.json();
+            document.getElementById('toggle-tts-enabled').checked = d.enabled;
+            document.getElementById('tts-voice-input').value      = d.voice || 'af_bella';
+            document.getElementById('tts-url-input').value        = d.url   || 'http://localhost:8880';
+        } catch(e) {}
+    }
+
+    async function saveTtsSettings() {
+        await fetch('/api/tts/settings', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                enabled: document.getElementById('toggle-tts-enabled').checked,
+                voice:   document.getElementById('tts-voice-input').value.trim(),
+                url:     document.getElementById('tts-url-input').value.trim(),
+            })
+        });
+    }
+
+    // ── Utils ─────────────────────────────────────────────────────────────────
+
+    function escHtml(str) {
+        return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    }
+
+    // ── Personality Settings ──────────────────────────────────────────────────
+
+    async function loadPersonalitySettings() {
+        try {
+            const r = await fetch('/api/personality/settings');
+            const d = await r.json();
+            document.getElementById('toggle-personality-enabled').checked = d.enabled;
+            document.getElementById('toggle-personality-prompt').checked  = d.affects_prompt;
+            document.getElementById('toggle-personality-critic').checked  = d.affects_critic;
+            document.getElementById('toggle-personality-music').checked   = d.affects_music ?? true;
+        } catch(e) { console.error('Personality settings load failed:', e); }
+    }
+
+    async function savePersonalitySettings() {
+        await fetch('/api/personality/settings', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                enabled:        document.getElementById('toggle-personality-enabled').checked,
+                affects_prompt: document.getElementById('toggle-personality-prompt').checked,
+                affects_critic: document.getElementById('toggle-personality-critic').checked,
+                affects_music:  document.getElementById('toggle-personality-music').checked,
+            })
+        });
+    }
+
+    // ── Init ──────────────────────────────────────────────────────────────────
+
+    loadConfigSettings();
+    loadToggles();
+    loadPersonalitySettings();
+    loadTtsSettings();
+    loadImgSettings();
+
+    // ── App Header: Personality ──
+    (async function loadAppHeader() {
+        try {
+            const [ar, lr] = await Promise.all([
+                fetch('/api/personalities/active'),
+                fetch('/api/personalities')
+            ]);
+            const { active } = await ar.json();
+            const { personalities } = await lr.json();
+            const p = personalities.find(x => x.name === active);
+            const nameEl = document.getElementById('app-name');
+            if (nameEl) nameEl.textContent = `${active} — AI Assistant`;
+            const logoEl = document.getElementById('app-logo');
+            if (logoEl && p?.has_logo)
+                logoEl.src = `/api/personalities/${active}/logo?t=${Date.now()}`;
+        } catch(e) {}
+    })();
+</script>
+<script src="frontend/navigation.js"></script>
+</body>
+</html>

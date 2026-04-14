@@ -1,0 +1,1118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Assistant</title>
+    <link rel="icon" type="image/png" href="frontend/assets/logo.png">
+    <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Syne:wght@400;600;700;800&display=swap"
+          rel="stylesheet">
+    <link rel="stylesheet" href="frontend/style.css">
+    <style>
+        .gal-page {
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            height: 100dvh;
+            background: var(--bg);
+            color: var(--text);
+            font-family: 'Syne', sans-serif;
+        }
+
+        .gal-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 0 20px;
+            height: 52px;
+            border-bottom: 1px solid var(--border);
+            background: var(--surface);
+            flex-shrink: 0;
+        }
+
+        .gal-back-btn {
+            background: none;
+            border: 1px solid var(--border);
+            color: var(--muted);
+            border-radius: 8px;
+            padding: 5px 12px;
+            font-family: 'Syne', sans-serif;
+            font-size: 0.78rem;
+            cursor: pointer;
+            transition: all .15s;
+            text-decoration: none;
+        }
+
+        .gal-back-btn:hover {
+            border-color: var(--accent);
+            color: var(--text);
+        }
+
+        .gal-header h1 {
+            font-size: 1rem;
+            font-weight: 700;
+            margin: 0;
+        }
+
+        .gal-count {
+            font-size: 0.7rem;
+            background: rgba(108, 99, 255, .15);
+            border: 1px solid var(--accent);
+            color: var(--accent);
+            border-radius: 20px;
+            padding: 2px 10px;
+            font-family: 'DM Mono', monospace;
+        }
+
+        /* ── Grid ── */
+        .gal-content {
+            flex: 1;
+            overflow-y: auto;
+            padding: 20px;
+        }
+
+        .gal-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 12px;
+        }
+
+        .gal-card {
+            position: relative;
+            border-radius: 10px;
+            overflow: hidden;
+            border: 1px solid var(--border);
+            background: var(--surface);
+            cursor: pointer;
+            transition: border-color 0.15s, transform 0.15s;
+            aspect-ratio: 1;
+        }
+
+        .gal-card:hover {
+            border-color: var(--accent);
+            transform: translateY(-2px);
+        }
+
+        .gal-card img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            display: block;
+        }
+
+        .gal-card-info {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            padding: 8px 10px;
+            background: linear-gradient(transparent, rgba(0, 0, 0, 0.8));
+            opacity: 0;
+            transition: opacity 0.15s;
+        }
+
+        .gal-card:hover .gal-card-info {
+            opacity: 1;
+        }
+
+        .gal-card-name {
+            font-size: 0.68rem;
+            font-family: 'DM Mono', monospace;
+            color: #fff;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .gal-card-meta {
+            font-size: 0.6rem;
+            color: rgba(255, 255, 255, 0.6);
+            margin-top: 2px;
+        }
+
+        /* ── Folder cards ── */
+        .gal-folder {
+            border-radius: 10px;
+            border: 1px solid var(--border);
+            background: var(--surface);
+            cursor: pointer;
+            transition: border-color 0.15s, transform 0.15s;
+            aspect-ratio: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+
+        .gal-folder:hover {
+            border-color: var(--accent);
+            transform: translateY(-2px);
+        }
+
+        .gal-folder-icon {
+            font-size: 2.5rem;
+        }
+
+        .gal-folder-name {
+            font-size: 0.78rem;
+            font-weight: 700;
+            color: var(--text);
+            text-align: center;
+            padding: 0 8px;
+            word-break: break-all;
+        }
+
+        .gal-folder-count {
+            font-size: 0.65rem;
+            color: var(--muted);
+            font-family: 'DM Mono', monospace;
+        }
+
+        /* ── Breadcrumb ── */
+        .gal-breadcrumb {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 10px 20px 0;
+            font-size: 0.8rem;
+            flex-wrap: wrap;
+        }
+
+        .gal-crumb {
+            color: var(--accent);
+            cursor: pointer;
+            text-decoration: none;
+            font-weight: 600;
+        }
+
+        .gal-crumb:hover {
+            text-decoration: underline;
+        }
+
+        .gal-crumb-sep {
+            color: var(--muted);
+        }
+
+        .gal-crumb-current {
+            color: var(--text);
+            font-weight: 600;
+        }
+
+        .gal-empty {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+            color: var(--muted);
+            padding: 60px 20px;
+            text-align: center;
+        }
+
+        .gal-empty-icon {
+            font-size: 3rem;
+            opacity: 0.4;
+        }
+
+        /* ── Lightbox ── */
+        .gal-lightbox {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.9);
+            z-index: 1000;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            backdrop-filter: blur(4px);
+        }
+
+        .gal-lightbox.open {
+            display: flex;
+        }
+
+        .gal-lightbox-close {
+            position: absolute;
+            top: 16px;
+            right: 20px;
+            background: none;
+            border: none;
+            color: #fff;
+            font-size: 1.8rem;
+            cursor: pointer;
+            opacity: 0.7;
+            transition: opacity 0.15s;
+            z-index: 10;
+        }
+
+        .gal-lightbox-close:hover {
+            opacity: 1;
+        }
+
+        .gal-lightbox img {
+            max-width: 90vw;
+            max-height: 75vh;
+            border-radius: 12px;
+            object-fit: contain;
+        }
+
+        .gal-lightbox-actions {
+            display: flex;
+            gap: 10px;
+            margin-top: 16px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        .gal-lb-btn {
+            padding: 8px 18px;
+            border-radius: 8px;
+            border: 1px solid var(--border);
+            background: var(--surface);
+            color: var(--text);
+            font-family: 'Syne', sans-serif;
+            font-size: 0.8rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.15s;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .gal-lb-btn:hover {
+            border-color: var(--accent);
+            color: var(--accent);
+        }
+
+        .gal-lb-btn.primary {
+            background: var(--accent);
+            border-color: var(--accent);
+            color: #fff;
+        }
+
+        .gal-lb-btn.primary:hover {
+            opacity: 0.85;
+            color: #fff;
+        }
+
+        .gal-lightbox-name {
+            margin-top: 10px;
+            font-family: 'DM Mono', monospace;
+            font-size: 0.72rem;
+            color: rgba(255, 255, 255, 0.5);
+        }
+
+        .gal-lb-status {
+            font-size: 0.75rem;
+            color: var(--muted);
+            margin-top: 8px;
+            min-height: 20px;
+        }
+
+        /* ── Responsive ── */
+        @media (max-width: 768px) {
+            .gal-header {
+                padding: 0 12px;
+                height: 48px;
+                gap: 8px;
+            }
+
+            .gal-header h1 {
+                font-size: 0.85rem;
+            }
+
+            .gal-content {
+                padding: 12px;
+            }
+
+            .gal-grid {
+                grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+                gap: 8px;
+            }
+
+            .gal-card-info {
+                opacity: 1;
+            }
+
+            .gal-lightbox img {
+                max-width: 95vw;
+                max-height: 65vh;
+            }
+
+            .gal-lightbox-actions {
+                gap: 6px;
+            }
+
+            .gal-lb-btn {
+                padding: 7px 14px;
+                font-size: 0.72rem;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .gal-grid {
+                grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+                gap: 6px;
+            }
+
+            .gal-card {
+                border-radius: 8px;
+            }
+        }
+
+        /* ── App Header (shared) ── */
+        .app-header {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            padding: 0 20px;
+            height: 52px;
+            border-bottom: 1px solid var(--border);
+            background: var(--surface);
+            flex-shrink: 0;
+        }
+        .app-brand {
+            display: flex;
+            align-items: center;
+            gap: 9px;
+            text-decoration: none;
+            flex-shrink: 0;
+        }
+        .app-logo {
+            width: 28px;
+            height: 28px;
+            border-radius: 7px;
+            object-fit: cover;
+        }
+        .app-name {
+            font-size: 0.88rem;
+            font-weight: 800;
+            color: var(--text);
+            white-space: nowrap;
+        }
+        .app-nav {
+            display: flex;
+            gap: 5px;
+            align-items: center;
+            margin-left: auto;
+        }
+        .app-tab {
+            background: none;
+            border: 1px solid var(--border);
+            color: var(--muted);
+            border-radius: 8px;
+            padding: 5px 11px;
+            font-family: 'Syne', sans-serif;
+            font-size: 0.77rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all .15s;
+            text-decoration: none;
+            white-space: nowrap;
+        }
+        .app-tab:hover { border-color: var(--accent); color: var(--text); }
+        .app-tab.active { background: rgba(108,99,255,.15); border-color: var(--accent); color: var(--accent); }
+        @media (max-width: 900px) {
+            .app-name { display: none; }
+            .app-tab { padding: 5px 7px; font-size: 0.7rem; }
+        }
+
+        /* ── Tags ── */
+        .gal-tags { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; }
+        .gal-tag {
+            font-size: 0.65rem; padding: 2px 7px; border-radius: 10px;
+            background: rgba(108,99,255,.12); border: 1px solid rgba(108,99,255,.25);
+            color: var(--accent); cursor: pointer; font-family: 'DM Mono', monospace;
+            transition: all .12s; white-space: nowrap;
+        }
+        .gal-tag:hover { background: rgba(108,99,255,.25); }
+        .gal-tag.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+        .gal-card-tags { position: absolute; bottom: 0; left: 0; right: 0;
+            padding: 4px 5px; display: flex; flex-wrap: wrap; gap: 3px;
+            background: linear-gradient(transparent, rgba(0,0,0,.7));
+            pointer-events: none; }
+        .gal-card-tag { font-size: 0.58rem; padding: 1px 5px; border-radius: 8px;
+            background: rgba(108,99,255,.7); color: #fff; font-family: 'DM Mono', monospace; }
+        .gal-lb-tags { display: flex; flex-wrap: wrap; gap: 5px; padding: 8px 0 0; }
+        .gal-lb-tag { font-size: 0.72rem; padding: 3px 9px; border-radius: 10px;
+            background: rgba(108,99,255,.12); border: 1px solid rgba(108,99,255,.3);
+            color: var(--accent); cursor: pointer; font-family: 'DM Mono', monospace; }
+        .gal-lb-tag:hover { background: rgba(108,99,255,.25); }
+        .gal-tag-status { font-size: 0.72rem; color: var(--muted); font-style: italic; }
+        .gal-tag-filter-bar { display: flex; flex-wrap: wrap; gap: 5px;
+            padding: 6px 20px; border-bottom: 1px solid var(--border);
+            background: var(--bg); min-height: 0; }
+        .gal-tag-filter-bar:empty { display: none; }
+
+        /* ── Toolbar ── */
+        .gal-toolbar {
+            display: flex; align-items: center; gap: 8px;
+            padding: 8px 20px; border-bottom: 1px solid var(--border);
+            background: var(--surface); flex-shrink: 0; flex-wrap: wrap;
+        }
+        .gal-search {
+            flex: 1; min-width: 160px; height: 32px;
+            background: var(--bg); border: 1px solid var(--border);
+            border-radius: 8px; color: var(--text);
+            font-family: 'Syne', sans-serif; font-size: 0.82rem;
+            padding: 0 12px; transition: border-color .15s;
+        }
+        .gal-search:focus { outline: none; border-color: var(--accent); }
+        .gal-toolbar-btn {
+            height: 32px; padding: 0 12px; border-radius: 8px;
+            border: 1px solid var(--border); background: none;
+            color: var(--muted); font-family: 'Syne', sans-serif;
+            font-size: 0.78rem; font-weight: 600; cursor: pointer;
+            transition: all .15s; white-space: nowrap;
+        }
+        .gal-toolbar-btn:hover { border-color: var(--accent); color: var(--text); }
+        .gal-size-slider { width: 80px; accent-color: var(--accent); cursor: pointer; }
+
+        /* ── Multi-select ── */
+        .gal-card .gal-select-cb {
+            position: absolute; top: 6px; left: 6px;
+            width: 18px; height: 18px; border-radius: 5px;
+            border: 2px solid rgba(255,255,255,.5);
+            background: rgba(0,0,0,.4); cursor: pointer;
+            opacity: 0; transition: opacity .15s;
+            display: flex; align-items: center; justify-content: center;
+            z-index: 2;
+        }
+        .gal-card:hover .gal-select-cb,
+        .gal-card.selected .gal-select-cb { opacity: 1; }
+        .gal-card.selected .gal-select-cb {
+            background: var(--accent); border-color: var(--accent);
+        }
+        .gal-card.selected .gal-select-cb::after {
+            content: ''; width: 5px; height: 9px;
+            border: 2px solid #fff; border-top: none; border-left: none;
+            transform: rotate(45deg) translateY(-1px);
+        }
+        .gal-card.selected { border-color: var(--accent); }
+        .gal-card.selected img { opacity: .85; }
+
+        /* ── Batch bar ── */
+        .gal-batch-bar {
+            position: fixed; bottom: -60px; left: 50%; transform: translateX(-50%);
+            background: var(--surface); border: 1px solid var(--accent);
+            border-radius: 12px; padding: 10px 16px;
+            display: flex; align-items: center; gap: 10px;
+            box-shadow: 0 4px 20px rgba(0,0,0,.4);
+            transition: bottom .2s ease; z-index: 500; white-space: nowrap;
+        }
+        .gal-batch-bar.visible { bottom: 20px; }
+        .gal-batch-count { font-size: 0.82rem; font-weight: 700; color: var(--accent); min-width: 80px; }
+        .gal-batch-btn {
+            height: 30px; padding: 0 12px; border-radius: 7px;
+            border: 1px solid var(--border); background: none;
+            color: var(--muted); font-family: 'Syne', sans-serif;
+            font-size: 0.78rem; font-weight: 600; cursor: pointer; transition: all .15s;
+        }
+        .gal-batch-btn:hover { border-color: var(--accent); color: var(--text); }
+        .gal-batch-btn.danger { border-color: rgba(244,67,54,.4); color: rgba(244,67,54,.7); }
+        .gal-batch-btn.danger:hover { background: rgba(244,67,54,.1); }
+
+        /* ── Lightbox prev/next ── */
+        .gal-lb-nav {
+            position: absolute; top: 50%; transform: translateY(-50%);
+            width: 40px; height: 40px; border-radius: 50%;
+            background: rgba(255,255,255,.1); border: 1px solid rgba(255,255,255,.2);
+            color: #fff; font-size: 18px; cursor: pointer;
+            display: flex; align-items: center; justify-content: center;
+            transition: background .15s; z-index: 2;
+        }
+        .gal-lb-nav:hover { background: rgba(255,255,255,.2); }
+        .gal-lb-nav.prev { left: 16px; }
+        .gal-lb-nav.next { right: 16px; }
+        .gal-lb-counter {
+            font-size: 0.72rem; color: rgba(255,255,255,.5);
+            font-family: 'DM Mono', monospace; text-align: center; margin-top: 4px;
+        }
+        .gal-lb-btn.delete { border-color: rgba(244,67,54,.5); color: rgba(244,67,54,.8); }
+        .gal-lb-btn.delete:hover { background: rgba(244,67,54,.15); }
+    </style>
+</head>
+<body>
+<div class="gal-page">
+
+    <div class="app-header">
+        <a href="/" class="app-brand">
+            <img src="frontend/assets/logo.png" class="app-logo" id="app-logo" alt="Logo">
+            <span class="app-name" id="app-name">AI Assistant</span>
+        </a>
+        <div style="display:flex;align-items:center;gap:10px;margin-left:auto">
+            <span class="gal-count" id="gal-count">...</span>
+        </div>
+    </div>
+
+    <!-- Toolbar -->
+    <div class="gal-toolbar">
+        <input class="gal-search" id="gal-search" placeholder="Bilder suchen..." oninput="filterGallery(this.value)">
+        <input type="range" class="gal-size-slider" id="gal-size" min="1" max="5" value="3"
+               title="Grid-Größe" oninput="updateGridSize(this.value)">
+        <button class="gal-toolbar-btn" onclick="loadGallery(currentFolder)">↻</button>
+        <button class="gal-toolbar-btn" onclick="openTagBatchPanel()">Auto-Tag</button>
+        <button class="gal-toolbar-btn" onclick="window.location.href='/sort'">Sortieren</button>
+        <button class="gal-toolbar-btn" onclick="unsortAll()">Unsort</button>
+    </div>
+
+    <!-- Tag filter bar -->
+    <div class="gal-tag-filter-bar" id="gal-tag-filter-bar"></div>
+
+    <!-- Auto-Tag panel (hidden) -->
+    <div id="gal-tag-panel" style="display:none;position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);
+         z-index:600;background:var(--surface);border:1px solid var(--accent);border-radius:12px;
+         padding:20px;width:360px;box-shadow:0 8px 32px rgba(0,0,0,.5)">
+        <div style="font-size:0.88rem;font-weight:800;color:var(--text);margin-bottom:14px">Auto-Tag Ordner</div>
+        <div style="display:flex;flex-direction:column;gap:10px">
+            <div>
+                <label style="font-size:0.68rem;font-weight:700;text-transform:uppercase;color:var(--muted);display:block;margin-bottom:5px">Modus</label>
+                <div style="display:flex;gap:6px">
+                    <button class="gal-toolbar-btn active" id="tag-mode-vision" onclick="setTagMode('vision')"
+                            style="flex:1;border-color:var(--accent);color:var(--accent);background:rgba(108,99,255,.1)">Vision</button>
+                    <button class="gal-toolbar-btn" id="tag-mode-text" onclick="setTagMode('text')" style="flex:1">Text (Prompt)</button>
+                </div>
+            </div>
+            <div id="tag-size-row">
+                <label style="font-size:0.68rem;font-weight:700;text-transform:uppercase;color:var(--muted);display:block;margin-bottom:5px">Bildgröße</label>
+                <select id="tag-vision-size" style="width:100%;height:34px;background:var(--bg);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:'Syne',sans-serif;font-size:0.82rem;padding:0 10px">
+                    <option value="256">256px (schnell)</option>
+                    <option value="512" selected>512px (empfohlen)</option>
+                    <option value="768">768px (langsam)</option>
+                </select>
+            </div>
+            <div>
+                <label style="font-size:0.68rem;font-weight:700;text-transform:uppercase;color:var(--muted);display:block;margin-bottom:5px">Parallelität (Bilder gleichzeitig)</label>
+                <div style="display:flex;align-items:center;gap:10px">
+                    <input type="range" id="tag-batch-size" min="1" max="20" value="3" step="1"
+                           style="flex:1;accent-color:var(--accent)"
+                           oninput="document.getElementById('tag-batch-size-num').textContent=this.value">
+                    <span id="tag-batch-size-num" style="font-size:0.82rem;font-weight:700;color:var(--accent);font-family:'DM Mono',monospace;min-width:24px;text-align:right">3</span>
+                </div>
+            </div>
+            <label style="display:flex;align-items:center;gap:8px;font-size:0.82rem;color:var(--text);cursor:pointer">
+                <input type="checkbox" id="tag-overwrite" style="accent-color:var(--accent)">
+                Bestehende Tags überschreiben
+            </label>
+            <div id="tag-batch-log" style="display:none;max-height:120px;overflow-y:auto;
+                 background:var(--bg);border:1px solid var(--border);border-radius:8px;
+                 padding:8px;font-size:0.72rem;font-family:'DM Mono',monospace;color:var(--muted)"></div>
+            <div style="display:flex;gap:8px;margin-top:4px">
+                <button class="gal-toolbar-btn" onclick="closeTagPanel()" style="flex:1">Abbrechen</button>
+                <button id="tag-start-btn" onclick="startTagBatch()" style="flex:2;height:34px;border-radius:8px;border:none;background:var(--accent);color:#fff;font-family:'Syne',sans-serif;font-size:0.82rem;font-weight:700;cursor:pointer">Starten</button>
+            </div>
+        </div>
+    </div>
+    <div id="gal-tag-backdrop" style="display:none;position:fixed;inset:0;z-index:590;background:rgba(0,0,0,.5)" onclick="closeTagPanel()"></div>
+
+    <div class="gal-breadcrumb" id="gal-breadcrumb"></div>
+
+    <div class="gal-content" id="gal-content">
+        <div class="gal-empty">
+            <div class="gal-empty-icon">↻</div>
+            <p>Loading...</p>
+        </div>
+    </div>
+
+    <!-- Batch bar -->
+    <div class="gal-batch-bar" id="gal-batch-bar">
+        <span class="gal-batch-count" id="gal-batch-count">0 ausgewählt</span>
+        <button class="gal-batch-btn" onclick="downloadSelected()">Download</button>
+        <button class="gal-batch-btn danger" onclick="deleteSelected()">Löschen</button>
+        <button class="gal-batch-btn" onclick="clearSelection()">Abbrechen</button>
+    </div>
+
+    <!-- Lightbox -->
+    <div class="gal-lightbox" id="gal-lightbox">
+        <button class="gal-lightbox-close" onclick="closeLightbox()">×</button>
+        <button class="gal-lb-nav prev" onclick="lightboxNav(-1)">‹</button>
+        <button class="gal-lb-nav next" onclick="lightboxNav(1)">›</button>
+        <img id="lb-img" src="" alt="">
+        <div class="gal-lightbox-actions">
+            <a class="gal-lb-btn" id="lb-download" href="" download>Download</a>
+            <button class="gal-lb-btn primary" id="lb-workflow" onclick="extractAndOpenWorkflow()">Workflow</button>
+            <button class="gal-lb-btn" id="lb-tag-btn" onclick="tagCurrent()">Tag</button>
+            <button class="gal-lb-btn delete" id="lb-delete" onclick="deleteCurrent()">Löschen</button>
+        </div>
+        <div class="gal-lb-status" id="lb-status"></div>
+        <div class="gal-lightbox-name" id="lb-name"></div>
+        <div class="gal-lb-tags" id="lb-tags"></div>
+        <div class="gal-lb-counter" id="lb-counter"></div>
+    </div>
+
+</div>
+
+<script>
+    // ── State ────────────────────────────────────────────────────────────────
+    let currentImage  = null;
+    let currentFolder = '';
+    let _allImages    = [];   // all images in current folder (for nav + filter)
+    let _filteredImages = []; // after search filter
+    let _currentIdx   = -1;   // lightbox index
+    let _selected     = new Set(); // selected paths
+    let _lastIdx      = -1;   // for shift+click
+
+    // ── Load gallery ─────────────────────────────────────────────────────────
+    async function loadGallery(folder) {
+        folder = folder || '';
+        currentFolder = folder;
+        _selected.clear();
+        updateBatchBar();
+
+        const content = document.getElementById('gal-content');
+        const count   = document.getElementById('gal-count');
+        content.innerHTML = '<div class="gal-empty"><div class="gal-empty-icon">↻</div><p>Loading...</p></div>';
+        renderBreadcrumb(folder);
+
+        try {
+            const url  = folder ? `/api/gallery?folder=${encodeURIComponent(folder)}` : '/api/gallery';
+            const data = await fetch(url).then(r => r.json());
+
+            count.textContent = `${data.folders.length ? data.folders.length + ' Ordner  ' : ''}${data.total} Bilder`;
+            _allImages      = data.images || [];
+            _filteredImages = _allImages;
+            window._currentFolders = data.folders || [];
+
+            if (!data.folders.length && !data.images.length) {
+                content.innerHTML = '<div class="gal-empty"><div class="gal-empty-icon">🖼️</div><p>Leer.</p></div>';
+                return;
+            }
+
+            renderGrid(window._currentFolders, _filteredImages);
+            // Fetch tags in background
+            _loadTagsForImages(_filteredImages);
+        } catch(e) {
+            content.innerHTML = `<div class="gal-empty"><div class="gal-empty-icon">❌</div><p>${e.message}</p></div>`;
+        }
+    }
+
+    // ── Render grid ───────────────────────────────────────────────────────────
+    function renderGrid(folders, images) {
+        const content = document.getElementById('gal-content');
+        content.innerHTML = '<div class="gal-grid" id="gal-grid"></div>';
+        const grid = document.getElementById('gal-grid');
+        updateGridSize(document.getElementById('gal-size').value);
+
+        for (const f of folders) {
+            const card = document.createElement('div');
+            card.className = 'gal-folder';
+            card.onclick   = () => loadGallery(f.path);
+            card.innerHTML = `<div class="gal-folder-icon">📁</div>
+                <div class="gal-folder-name">${f.name}</div>
+                <div class="gal-folder-count">${f.count} Bilder</div>`;
+            grid.appendChild(card);
+        }
+
+        // Load tags for images that have them
+        images.forEach(img => {
+            const rel = img.path.replace(/\//g,'_').replace(/\\/g,'_');
+        });
+
+        images.forEach((img, idx) => {
+            const card = document.createElement('div');
+            card.className = 'gal-card' + (_selected.has(img.path) ? ' selected' : '');
+            card.dataset.idx = idx;
+
+            const cb = document.createElement('div');
+            cb.className = 'gal-select-cb';
+            cb.onclick = (e) => { e.stopPropagation(); toggleSelect(img, idx, e.shiftKey); };
+
+            const image = document.createElement('img');
+            image.src     = img.thumb || img.url;
+            image.alt     = img.filename;
+            image.loading = 'lazy';
+
+            const info = document.createElement('div');
+            info.className = 'gal-card-info';
+            info.innerHTML = `<div class="gal-card-name">${img.filename}</div>
+                <div class="gal-card-meta">${img.size_kb} KB · ${img.modified}</div>`;
+
+            card.appendChild(cb);
+            card.appendChild(image);
+            card.appendChild(info);
+            card.onclick = (e) => { if (!e.target.closest('.gal-select-cb')) openLightbox(img, idx); };
+            // Show cached tags on card
+            if (img.tags && img.tags.length) {
+                const tagBar = document.createElement('div');
+                tagBar.className = 'gal-card-tags';
+                tagBar.innerHTML = img.tags.slice(0,4).map(t => `<span class="gal-card-tag">${t}</span>`).join('');
+                card.appendChild(tagBar);
+            }
+            grid.appendChild(card);
+        });
+    }
+
+    // ── Grid size slider ──────────────────────────────────────────────────────
+    function updateGridSize(val) {
+        const cols = [2, 3, 4, 6, 8][parseInt(val) - 1] || 4;
+        const grid = document.getElementById('gal-grid');
+        if (grid) grid.style.gridTemplateColumns = `repeat(${cols}, 1fr)`;
+    }
+
+    // ── Search filter ─────────────────────────────────────────────────────────
+    function filterGallery(q) {
+        _filteredImages = q
+            ? _allImages.filter(img => img.filename.toLowerCase().includes(q.toLowerCase()))
+            : _allImages;
+        const folders = q ? [] : (window._currentFolders || []);
+        renderGrid(folders, _filteredImages);
+        // Update counter
+        const count = document.getElementById('gal-count');
+        if (count) count.textContent = q
+            ? `${_filteredImages.length} Treffer`
+            : `${(window._currentFolders||[]).length ? (window._currentFolders.length + ' Ordner  ') : ''}${_allImages.length} Bilder`;
+    }
+
+    // ── Multi-select ──────────────────────────────────────────────────────────
+    function toggleSelect(img, idx, shiftKey) {
+        if (shiftKey && _lastIdx !== -1) {
+            const lo = Math.min(_lastIdx, idx), hi = Math.max(_lastIdx, idx);
+            for (let i = lo; i <= hi; i++) {
+                if (_filteredImages[i]) _selected.add(_filteredImages[i].path);
+            }
+        } else {
+            if (_selected.has(img.path)) _selected.delete(img.path);
+            else _selected.add(img.path);
+            _lastIdx = idx;
+        }
+        updateBatchBar();
+        // Update card classes
+        document.querySelectorAll('.gal-card').forEach((card, i) => {
+            const imgPath = _filteredImages[parseInt(card.dataset.idx)]?.path;
+            card.classList.toggle('selected', imgPath && _selected.has(imgPath));
+        });
+    }
+
+    function clearSelection() {
+        _selected.clear();
+        document.querySelectorAll('.gal-card.selected').forEach(c => c.classList.remove('selected'));
+        updateBatchBar();
+    }
+
+    function updateBatchBar() {
+        const bar = document.getElementById('gal-batch-bar');
+        const cnt = document.getElementById('gal-batch-count');
+        cnt.textContent = `${_selected.size} ausgewählt`;
+        bar.classList.toggle('visible', _selected.size > 0);
+    }
+
+    async function deleteSelected() {
+        if (!_selected.size) return;
+        if (!confirm(`${_selected.size} Bilder wirklich löschen?`)) return;
+        const r = await fetch('/api/gallery/delete-batch', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ paths: [..._selected] })
+        });
+        const d = await r.json();
+        clearSelection();
+        loadGallery(currentFolder);
+    }
+
+    async function downloadSelected() {
+        for (const path of _selected) {
+            const img = _allImages.find(i => i.path === path);
+            if (!img) continue;
+            const a = document.createElement('a');
+            a.href = img.url; a.download = img.filename;
+            a.style.display = 'none'; document.body.appendChild(a);
+            a.click(); document.body.removeChild(a);
+            await new Promise(r => setTimeout(r, 150));
+        }
+    }
+
+    // ── Unsort ────────────────────────────────────────────────────────────────
+    async function unsortAll() {
+        if (!confirm('Alle sortierten Bilder zurück in exportImg/ verschieben?')) return;
+        const r = await fetch('/api/sort/unsort', { method: 'POST' });
+        const d = await r.json();
+        alert(d.text);
+        loadGallery(currentFolder);
+    }
+
+    // ── Breadcrumb ────────────────────────────────────────────────────────────
+    function renderBreadcrumb(folder) {
+        const bc = document.getElementById('gal-breadcrumb');
+        if (!folder) { bc.innerHTML = ''; return; }
+        let html  = `<span class="gal-crumb" onclick="loadGallery('')">exportImg</span>`;
+        let cumPath = '';
+        const parts = folder.split('/').filter(Boolean);
+        parts.forEach((part, i) => {
+            cumPath += (cumPath ? '/' : '') + part;
+            html += `<span class="gal-crumb-sep"> / </span>`;
+            if (i < parts.length - 1)
+                html += `<span class="gal-crumb" onclick="loadGallery('${cumPath}')">${part}</span>`;
+            else
+                html += `<span class="gal-crumb-current">${part}</span>`;
+        });
+        bc.innerHTML = html;
+    }
+
+    // ── Lightbox ──────────────────────────────────────────────────────────────
+    function openLightbox(img, idx) {
+        currentImage = img;
+        _currentIdx  = idx !== undefined ? idx : _filteredImages.indexOf(img);
+        _showLightboxImage(img);
+        document.getElementById('gal-lightbox').classList.add('open');
+        // Load tags
+        if (img.tags) { renderLbTags(img.tags); }
+        else {
+            document.getElementById('lb-tags').innerHTML = '';
+            fetch(`/api/gallery/tags?path=${encodeURIComponent(img.path)}`)
+                .then(r => r.json()).then(d => { img.tags = d.tags || []; renderLbTags(img.tags); })
+                .catch(() => {});
+        }
+    }
+
+    function _showLightboxImage(img) {
+        document.getElementById('lb-img').src      = img.url;
+        document.getElementById('lb-download').href = img.url;
+        document.getElementById('lb-download').download = img.filename;
+        document.getElementById('lb-name').textContent  = img.path || img.filename;
+        document.getElementById('lb-status').textContent = '';
+        document.getElementById('lb-counter').textContent =
+            _filteredImages.length > 1 ? `${_currentIdx + 1} / ${_filteredImages.length}` : '';
+        const btn = document.getElementById('lb-workflow');
+        btn.disabled = false; btn.textContent = 'Workflow';
+    }
+
+    function lightboxNav(dir) {
+        const next = _currentIdx + dir;
+        if (next < 0 || next >= _filteredImages.length) return;
+        _currentIdx  = next;
+        currentImage = _filteredImages[next];
+        _showLightboxImage(currentImage);
+    }
+
+    function closeLightbox() {
+        document.getElementById('gal-lightbox').classList.remove('open');
+        currentImage = null;
+    }
+
+    async function deleteCurrent() {
+        if (!currentImage) return;
+        if (!confirm(`"${currentImage.filename}" löschen?`)) return;
+        const r = await fetch(`/api/gallery/delete?path=${encodeURIComponent(currentImage.path)}`, { method: 'DELETE' });
+        const d = await r.json();
+        if (d.ok) {
+            _allImages      = _allImages.filter(i => i.path !== currentImage.path);
+            _filteredImages = _filteredImages.filter(i => i.path !== currentImage.path);
+            if (_filteredImages.length === 0) { closeLightbox(); loadGallery(currentFolder); return; }
+            _currentIdx = Math.min(_currentIdx, _filteredImages.length - 1);
+            currentImage = _filteredImages[_currentIdx];
+            _showLightboxImage(currentImage);
+            renderGrid(window._currentFolders || [], _filteredImages);
+        }
+    }
+
+    // ── Keyboard ──────────────────────────────────────────────────────────────
+    document.addEventListener('keydown', e => {
+        if (!document.getElementById('gal-lightbox').classList.contains('open')) return;
+        if (e.key === 'Escape')     closeLightbox();
+        if (e.key === 'ArrowRight') lightboxNav(1);
+        if (e.key === 'ArrowLeft')  lightboxNav(-1);
+        if (e.key === 'Delete')     deleteCurrent();
+    });
+    document.getElementById('gal-lightbox').addEventListener('click', e => {
+        if (e.target === e.currentTarget) closeLightbox();
+    });
+
+    // ── Workflow extraction ───────────────────────────────────────────────────
+    async function extractAndOpenWorkflow() {
+        if (!currentImage) return;
+        const status = document.getElementById('lb-status');
+        const btn    = document.getElementById('lb-workflow');
+        if (!currentImage.filename.toLowerCase().endsWith('.png')) {
+            status.textContent = '⚠️ Only PNG files can contain workflows'; return;
+        }
+        btn.disabled = true; status.textContent = '⏳ Extracting...';
+        try {
+            const blob = await fetch(currentImage.url).then(r => r.blob());
+            const fd   = new FormData(); fd.append('file', blob, currentImage.filename);
+            const data = await fetch('/api/workflows/extract-from-image', { method: 'POST', body: fd }).then(r => r.json());
+            if (data.error) { status.textContent = `❌ ${data.error}`; btn.disabled = false; return; }
+            sessionStorage.setItem('pending_workflow', JSON.stringify({
+                workflow: data.workflow, name: currentImage.filename.replace('.png',''),
+                source: data.source, imageUrl: currentImage.url
+            }));
+            if (currentImage.path?.startsWith('merges/')) {
+                sessionStorage.setItem('pending_merge_image', JSON.stringify({
+                    url:      currentImage.url,
+                    filename: currentImage.filename,
+                    path:     currentImage.path
+                }));
+                window.location.href = '/merger';
+                return;
+            }
+            window.location.href = '/workflows';
+        } catch(e) { status.textContent = `❌ ${e.message}`; btn.disabled = false; }
+    }
+
+    // ── Load tags for images ─────────────────────────────────────────────────
+    async function _loadTagsForImages(images) {
+        for (const img of images) {
+            if (img.tags !== undefined) continue;
+            try {
+                const d = await fetch(`/api/gallery/tags?path=${encodeURIComponent(img.path)}`).then(r=>r.json());
+                img.tags = d.tags || [];
+                if (img.tags.length) updateCardTags(img.path, img.tags);
+            } catch(e) { img.tags = []; }
+        }
+        rebuildTagFilterBar();
+    }
+
+    // ── Tagging ───────────────────────────────────────────────────────────────
+
+    let _tagFilter    = new Set(); // active tag filters
+    let _tagMode      = 'vision';
+
+    function setTagMode(mode) {
+        _tagMode = mode;
+        document.getElementById('tag-mode-vision').style.cssText =
+            mode === 'vision' ? 'flex:1;border-color:var(--accent);color:var(--accent);background:rgba(108,99,255,.1)' : 'flex:1';
+        document.getElementById('tag-mode-text').style.cssText =
+            mode === 'text' ? 'flex:1;border-color:var(--accent);color:var(--accent);background:rgba(108,99,255,.1)' : 'flex:1';
+        document.getElementById('tag-size-row').style.display = mode === 'vision' ? 'block' : 'none';
+    }
+
+    function openTagBatchPanel() {
+        document.getElementById('gal-tag-panel').style.display = 'block';
+        document.getElementById('gal-tag-backdrop').style.display = 'block';
+        document.getElementById('tag-batch-log').style.display = 'none';
+        document.getElementById('tag-batch-log').textContent = '';
+    }
+    function closeTagPanel() {
+        document.getElementById('gal-tag-panel').style.display = 'none';
+        document.getElementById('gal-tag-backdrop').style.display = 'none';
+    }
+
+    async function startTagBatch() {
+        const btn      = document.getElementById('tag-start-btn');
+        const log      = document.getElementById('tag-batch-log');
+        const overwrite = document.getElementById('tag-overwrite').checked;
+        const size      = document.getElementById('tag-vision-size').value;
+        btn.disabled = true; btn.textContent = 'Läuft...';
+        log.style.display = 'block'; log.textContent = '';
+
+        const r = await fetch('/api/gallery/tag-batch', {
+            method: 'POST', headers: {'Content-Type':'application/json'},
+            body: JSON.stringify({
+                folder: currentFolder, use_vision: _tagMode === 'vision',
+                vision_size: size, overwrite,
+                batch_size: parseInt(document.getElementById('tag-batch-size').value)
+            })
+        });
+        const reader = r.body.getReader(); const dec = new TextDecoder();
+        let buf = '';
+        while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            buf += dec.decode(value, { stream: true });
+            const lines = buf.split('\n\n'); buf = lines.pop();
+            for (const line of lines) {
+                if (!line.startsWith('data: ')) continue;
+                try {
+                    const d = JSON.parse(line.slice(6));
+                    log.textContent += d.text + '\n';
+                    log.scrollTop = log.scrollHeight;
+                    if (d.type === 'done') {
+                        btn.textContent = 'Fertig!';
+                        loadGallery(currentFolder);
+                        setTimeout(closeTagPanel, 1500);
+                    }
+                } catch(e) {}
+            }
+        }
+        btn.disabled = false;
+    }
+
+    async function tagCurrent() {
+        if (!currentImage) return;
+        const btn = document.getElementById('lb-tag-btn');
+        btn.textContent = '⏳'; btn.disabled = true;
+        const size = '512';
+        try {
+            const r = await fetch('/api/gallery/tag-image', {
+                method: 'POST', headers: {'Content-Type':'application/json'},
+                body: JSON.stringify({ path: currentImage.path, use_vision: true, vision_size: size })
+            });
+            const d = await r.json();
+            if (d.tags) {
+                currentImage.tags = d.tags;
+                renderLbTags(d.tags);
+                // update card in grid
+                updateCardTags(currentImage.path, d.tags);
+            }
+        } catch(e) { document.getElementById('lb-status').textContent = '❌ ' + e.message; }
+        btn.textContent = 'Tag'; btn.disabled = false;
+    }
+
+    function renderLbTags(tags) {
+        const el = document.getElementById('lb-tags');
+        if (!tags || !tags.length) { el.innerHTML = ''; return; }
+        el.innerHTML = tags.map(t =>
+            `<span class="gal-lb-tag" onclick="filterByTag('${t}')">${t}</span>`
+        ).join('');
+    }
+
+    function updateCardTags(path, tags) {
+        document.querySelectorAll('.gal-card').forEach((card, i) => {
+            const img = _filteredImages[parseInt(card.dataset.idx)];
+            if (!img || img.path !== path) return;
+            img.tags = tags;
+            let tagBar = card.querySelector('.gal-card-tags');
+            if (!tagBar) { tagBar = document.createElement('div'); tagBar.className = 'gal-card-tags'; card.appendChild(tagBar); }
+            tagBar.innerHTML = tags.slice(0,4).map(t => `<span class="gal-card-tag">${t}</span>`).join('');
+        });
+        rebuildTagFilterBar();
+    }
+
+    function rebuildTagFilterBar() {
+        const allTags = {};
+        _filteredImages.forEach(img => (img.tags || []).forEach(t => allTags[t] = (allTags[t]||0)+1));
+        const bar = document.getElementById('gal-tag-filter-bar');
+        const sorted = Object.entries(allTags).sort((a,b)=>b[1]-a[1]).slice(0,20);
+        bar.innerHTML = sorted.map(([t, n]) =>
+            `<span class="gal-tag${_tagFilter.has(t)?' active':''}" onclick="filterByTag('${t}')">${t} <small style="opacity:.6">${n}</small></span>`
+        ).join('');
+    }
+
+    function filterByTag(tag) {
+        if (_tagFilter.has(tag)) _tagFilter.delete(tag);
+        else _tagFilter.add(tag);
+        applyTagFilter();
+    }
+
+    function applyTagFilter() {
+        if (_tagFilter.size === 0) {
+            _filteredImages = _allImages;
+        } else {
+            _filteredImages = _allImages.filter(img =>
+                [..._tagFilter].every(t => (img.tags || []).includes(t))
+            );
+        }
+        renderGrid(window._currentFolders || [], _filteredImages);
+        rebuildTagFilterBar();
+    }
+
+    // ── Init ──────────────────────────────────────────────────────────────────
+    loadGallery('');
+
+    (async function loadAppHeader() {
+        try {
+            const [ar, lr] = await Promise.all([fetch('/api/personalities/active'), fetch('/api/personalities')]);
+            const { active } = await ar.json();
+            const { personalities } = await lr.json();
+            const p = personalities.find(x => x.name === active);
+            const nameEl = document.getElementById('app-name');
+            if (nameEl) nameEl.textContent = `${active} — AI Assistant`;
+            const logoEl = document.getElementById('app-logo');
+            if (logoEl && p?.has_logo) logoEl.src = `/api/personalities/${active}/logo?t=${Date.now()}`;
+        } catch(e) {}
+    })();
+</script>
+<script src="frontend/navigation.js"></script>
+</body>
+</html>

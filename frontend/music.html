@@ -1,0 +1,648 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Assistant — Song Generator</title>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="frontend/style.css">
+    <style>
+        * { box-sizing: border-box; }
+
+        html, body {
+            height: auto !important;
+            overflow-y: auto !important;
+        }
+        body {
+            margin: 0;
+            font-family: 'Syne', sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* ── App Header (shared) ── */
+        .app-header {
+            display: flex; align-items: center; gap: 14px;
+            padding: 0 20px; height: 52px;
+            border-bottom: 1px solid var(--border);
+            background: var(--surface); flex-shrink: 0;
+        }
+        .app-brand { display: flex; align-items: center; gap: 9px; text-decoration: none; flex-shrink: 0; }
+        .app-logo  { width: 28px; height: 28px; border-radius: 7px; object-fit: cover; }
+        .app-name  { font-size: 0.88rem; font-weight: 800; color: var(--text); white-space: nowrap; }
+        .app-nav   { display: flex; gap: 5px; align-items: center; margin-left: auto; }
+        .app-tab {
+            background: none; border: 1px solid var(--border); color: var(--muted);
+            border-radius: 8px; padding: 5px 11px;
+            font-family: 'Syne', sans-serif; font-size: 0.77rem; font-weight: 600;
+            cursor: pointer; transition: all .15s; text-decoration: none; white-space: nowrap;
+        }
+        .app-tab:hover  { border-color: var(--accent); color: var(--text); }
+        .app-tab.active { background: rgba(108,99,255,.15); border-color: var(--accent); color: var(--accent); }
+        @media (max-width: 900px) {
+            .app-name { display: none; }
+            .app-tab  { padding: 5px 7px; font-size: 0.7rem; }
+        }
+
+        /* ── Layout ── */
+        .mg-layout {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 0;
+            flex: 1;
+            min-height: calc(100vh - 52px);
+        }
+
+        /* ── Panel base ── */
+        .mg-panel {
+            display: flex;
+            flex-direction: column;
+            border-right: 1px solid var(--border);
+            overflow: hidden;
+        }
+        .mg-panel:last-child { border-right: none; }
+
+        .mg-panel-header {
+            padding: 16px 20px 12px;
+            border-bottom: 1px solid var(--border);
+            flex-shrink: 0;
+        }
+        .mg-panel-title {
+            font-size: 0.65rem; font-weight: 700;
+            text-transform: uppercase; letter-spacing: .1em;
+            color: var(--muted); margin-bottom: 2px;
+        }
+        .mg-panel-subtitle {
+            font-size: 0.92rem; font-weight: 700; color: var(--text);
+        }
+
+        .mg-panel-body {
+            flex: 1; overflow-y: auto;
+            padding: 20px;
+            display: flex; flex-direction: column; gap: 16px;
+        }
+
+        /* ── Field ── */
+        .mg-field label {
+            display: block; font-size: 0.68rem; font-weight: 700;
+            text-transform: uppercase; letter-spacing: .07em;
+            color: var(--muted); margin-bottom: 6px;
+        }
+        .mg-textarea {
+            width: 100%; background: var(--surface2);
+            border: 1px solid var(--border); border-radius: 8px;
+            color: var(--text); font-family: 'Syne', sans-serif;
+            font-size: 0.85rem; padding: 10px 12px;
+            resize: vertical; line-height: 1.5;
+            transition: border-color .15s;
+        }
+        .mg-textarea:focus { outline: none; border-color: var(--accent); }
+
+        .mg-input {
+            width: 100%; height: 36px; background: var(--surface2);
+            border: 1px solid var(--border); border-radius: 8px;
+            color: var(--text); font-family: 'DM Mono', monospace;
+            font-size: 0.82rem; padding: 0 12px;
+            transition: border-color .15s;
+        }
+        .mg-input:focus { outline: none; border-color: var(--accent); }
+
+        /* ── Duration slider ── */
+        .mg-slider-row {
+            display: flex; align-items: center; gap: 10px;
+        }
+        .mg-slider {
+            flex: 1; accent-color: var(--accent);
+            cursor: pointer;
+        }
+        .mg-slider-val {
+            font-family: 'DM Mono', monospace; font-size: 0.82rem;
+            color: var(--accent); min-width: 48px; text-align: right;
+            font-weight: 500;
+        }
+
+        /* ── Generate button ── */
+        .mg-btn {
+            width: 100%; padding: 12px;
+            border-radius: 10px; border: none;
+            background: var(--accent); color: #fff;
+            font-family: 'Syne', sans-serif; font-size: 0.9rem; font-weight: 700;
+            cursor: pointer; transition: opacity .15s;
+        }
+        .mg-btn:hover   { opacity: .85; }
+        .mg-btn:disabled { opacity: .45; cursor: not-allowed; }
+
+        .mg-btn-secondary {
+            background: rgba(108,99,255,.12);
+            border: 1px solid var(--accent);
+            color: var(--accent);
+        }
+
+        /* ── Hint ── */
+        .mg-hint {
+            font-size: 0.75rem; color: var(--muted); line-height: 1.5;
+            background: rgba(108,99,255,.05);
+            border: 1px solid rgba(108,99,255,.15);
+            border-radius: 8px; padding: 8px 12px;
+        }
+
+        /* ── Progress / Status ── */
+        .mg-status {
+            display: flex; align-items: center; gap: 10px;
+            padding: 10px 14px; border-radius: 8px;
+            background: var(--surface2); border: 1px solid var(--border);
+            font-size: 0.82rem; color: var(--muted);
+        }
+        .mg-status-dot {
+            width: 8px; height: 8px; border-radius: 50%;
+            background: var(--muted); flex-shrink: 0;
+            transition: background .3s;
+        }
+        .mg-status-dot.active  { background: var(--accent); animation: pulse 1.2s infinite; }
+        .mg-status-dot.done    { background: var(--success); animation: none; }
+        .mg-status-dot.error   { background: var(--accent2); animation: none; }
+        @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.35} }
+
+        /* ── Audio player ── */
+        .mg-player {
+            background: var(--surface2);
+            border: 1px solid var(--border);
+            border-radius: 12px; padding: 16px;
+            display: flex; flex-direction: column; gap: 12px;
+        }
+        .mg-player-title {
+            font-size: 0.78rem; font-weight: 700; color: var(--muted);
+            text-transform: uppercase; letter-spacing: .08em;
+        }
+        .mg-player audio {
+            width: 100%; border-radius: 6px;
+            accent-color: var(--accent);
+        }
+        .mg-player-actions {
+            display: flex; gap: 8px;
+        }
+        .mg-dl-btn {
+            flex: 1; padding: 8px;
+            border-radius: 8px; border: 1px solid var(--accent);
+            background: rgba(108,99,255,.1); color: var(--accent);
+            font-family: 'Syne', sans-serif; font-size: 0.8rem; font-weight: 700;
+            cursor: pointer; text-align: center; text-decoration: none;
+            transition: all .15s;
+        }
+        .mg-dl-btn:hover { background: var(--accent); color: #fff; }
+
+        /* ── Generated text preview ── */
+        .mg-preview-box {
+            background: var(--surface2); border: 1px solid var(--border);
+            border-radius: 8px; padding: 12px 14px;
+            font-family: 'DM Mono', monospace; font-size: 0.78rem;
+            line-height: 1.6; color: var(--text);
+            white-space: pre-wrap; word-break: break-word;
+            max-height: 200px; overflow-y: auto;
+        }
+        .mg-preview-box.streaming { border-color: var(--accent); }
+        .mg-preview-label {
+            font-size: 0.65rem; font-weight: 700; text-transform: uppercase;
+            letter-spacing: .07em; color: var(--muted); margin-bottom: 4px;
+        }
+
+        /* ── Divider ── */
+        .mg-divider {
+            height: 1px; background: var(--border); margin: 4px 0;
+        }
+
+        /* ── Empty state ── */
+        .mg-empty {
+            flex: 1; display: flex; flex-direction: column;
+            align-items: center; justify-content: center;
+            gap: 10px; color: var(--muted);
+            text-align: center; padding: 40px 20px;
+        }
+        .mg-empty-icon { font-size: 3rem; opacity: .25; }
+        .mg-empty-text { font-size: 0.82rem; line-height: 1.5; }
+
+        @media (max-width: 768px) {
+            .mg-layout { grid-template-columns: 1fr; }
+            .mg-panel  { border-right: none; border-bottom: 1px solid var(--border); }
+        }
+    </style>
+</head>
+<body>
+
+<div class="app-header">
+    <a href="/" class="app-brand">
+        <img src="frontend/assets/logo.png" class="app-logo" id="app-logo" alt="Logo">
+        <span class="app-name" id="app-name">AI Assistant</span>
+    </a>
+</div>
+
+<div class="mg-layout">
+
+    <!-- ── Input Panel ── -->
+    <div class="mg-panel">
+        <div class="mg-panel-header">
+            <div class="mg-panel-title">Eingabe</div>
+            <div class="mg-panel-subtitle">Song beschreiben</div>
+        </div>
+        <div class="mg-panel-body">
+
+            <div class="mg-field">
+                <label>Song beschreiben</label>
+                <textarea class="mg-textarea" id="desc-input" rows="4"
+                    placeholder="z.B. Ein melancholischer Indie-Pop Song über das Aufwachsen in einer Kleinstadt, mit akustischer Gitarre und weiblichem Gesang. Warme, nostalgische Stimmung."></textarea>
+            </div>
+
+            <div class="mg-field">
+                <label>Dauer</label>
+                <div class="mg-slider-row">
+                    <input type="range" class="mg-slider" id="duration-slider"
+                           min="30" max="240" step="10" value="120"
+                           oninput="document.getElementById('duration-val').textContent = this.value + 's'">
+                    <span class="mg-slider-val" id="duration-val">120s</span>
+                </div>
+            </div>
+
+            <div class="mg-field">
+                <label>Seed (optional, -1 = zufällig)</label>
+                <input class="mg-input" type="number" id="seed-input" value="-1" min="-1">
+            </div>
+
+            <div style="display:flex;align-items:center;gap:10px;padding:4px 0">
+                <label style="position:relative;display:inline-block;width:44px;height:24px;flex-shrink:0">
+                    <input type="checkbox" id="ref-voice-toggle" onchange="toggleRefVoice(this.checked)"
+                           style="opacity:0;width:0;height:0">
+                    <span id="ref-voice-track" style="position:absolute;inset:0;background:var(--border);border-radius:24px;cursor:pointer;transition:background .2s">
+                        <span style="position:absolute;width:18px;height:18px;left:3px;top:3px;background:#fff;border-radius:50%;transition:transform .2s;display:block" id="ref-voice-thumb"></span>
+                    </span>
+                </label>
+                <div>
+                    <div style="font-size:0.82rem;font-weight:700;color:var(--text)">Reference Voice (Personality)</div>
+                    <div style="font-size:0.72rem;color:var(--muted)">Generiert kurzen Kokoro-Clip als Vocal-Referenz für ACE-Step</div>
+                </div>
+            </div>
+            <div id="ref-voice-panel" style="display:none;flex-direction:column;gap:8px">
+                <div class="mg-status" id="ref-status">
+                    <div class="mg-status-dot" id="ref-dot"></div>
+                    <span id="ref-status-text">Referenz wird generiert wenn Song gestartet wird.</span>
+                </div>
+                <audio id="ref-audio-preview" controls style="width:100%;display:none"></audio>
+            </div>
+
+            <div class="mg-hint">
+                Die KI generiert zuerst einen Style-Caption und Lyrics aus deiner Beschreibung.
+                Du kannst beides vor dem Generieren anpassen.
+            </div>
+
+            <button class="mg-btn" id="generate-prompt-btn" onclick="generatePrompt()">✨ Prompt generieren</button>
+
+            <div class="mg-divider"></div>
+
+            <!-- Generated Caption -->
+            <div class="mg-field" id="caption-field" style="display:none">
+                <label>Caption / Style Tags</label>
+                <textarea class="mg-textarea" id="caption-input" rows="3"
+                          placeholder="indie pop, acoustic guitar, female vocals, melancholic, warm..."></textarea>
+            </div>
+
+            <!-- Generated Lyrics -->
+            <div class="mg-field" id="lyrics-field" style="display:none">
+                <label>Lyrics (leer = instrumental)</label>
+                <textarea class="mg-textarea" id="lyrics-input" rows="10"
+                          placeholder="[Verse 1]&#10;..."></textarea>
+            </div>
+
+            <button class="mg-btn mg-btn-secondary" id="create-btn" style="display:none"
+                    onclick="createTask()">🎵 Song generieren</button>
+
+        </div>
+    </div>
+
+    <!-- ── Result Panel ── -->
+    <div class="mg-panel">
+        <div class="mg-panel-header">
+            <div class="mg-panel-title">Ergebnis</div>
+            <div class="mg-panel-subtitle" id="result-subtitle">Bereit</div>
+        </div>
+        <div class="mg-panel-body" id="result-panel">
+
+            <div class="mg-empty" id="empty-state">
+                <div class="mg-empty-icon">🎵</div>
+                <div class="mg-empty-text">Beschreib deinen Song links<br>und klick auf "Prompt generieren".</div>
+            </div>
+
+        </div>
+    </div>
+
+</div>
+
+<script>
+    let currentTaskId     = null;
+    let pollInterval      = null;
+    let isGenerating      = false;
+    let referenceAudioB64 = null;
+
+    function toggleRefVoice(enabled) {
+        const track = document.getElementById('ref-voice-track');
+        const thumb = document.getElementById('ref-voice-thumb');
+        const panel = document.getElementById('ref-voice-panel');
+        track.style.background = enabled ? 'var(--accent)' : 'var(--border)';
+        thumb.style.transform  = enabled ? 'translateX(20px)' : 'translateX(0)';
+        panel.style.display    = enabled ? 'flex' : 'none';
+        if (!enabled) referenceAudioB64 = null;
+    }
+
+    async function generateReferenceAudio() {
+        const dot    = document.getElementById('ref-dot');
+        const status = document.getElementById('ref-status-text');
+        const audio  = document.getElementById('ref-audio-preview');
+        dot.className    = 'mg-status-dot active';
+        status.textContent = '⏳ Generiere Referenz-Clip via Kokoro...';
+        audio.style.display = 'none';
+        try {
+            const r = await fetch('/api/music/reference-audio', { method: 'POST' });
+            const d = await r.json();
+            if (d.error) throw new Error(d.error);
+            referenceAudioB64 = d.audio_b64;
+            dot.className    = 'mg-status-dot done';
+            status.textContent = `✓ Referenz-Stimme: ${d.voice}`;
+            audio.src = 'data:audio/mp3;base64,' + d.audio_b64;
+            audio.style.display = 'block';
+            return true;
+        } catch(e) {
+            dot.className    = 'mg-status-dot error';
+            status.textContent = '❌ Kokoro nicht erreichbar: ' + e.message;
+            referenceAudioB64 = null;
+            return false;
+        }
+    }
+
+    // ── Generate Prompt via LM Studio ────────────────────────────────────────
+
+    async function generatePrompt() {
+        const desc = document.getElementById('desc-input').value.trim();
+        if (!desc || isGenerating) return;
+
+        isGenerating = true;
+        const btn = document.getElementById('generate-prompt-btn');
+        btn.disabled = true;
+        btn.textContent = '⏳ Generiere...';
+
+        // Hide previous results
+        document.getElementById('caption-field').style.display = 'none';
+        document.getElementById('lyrics-field').style.display  = 'none';
+        document.getElementById('create-btn').style.display    = 'none';
+
+        showResultState('generating', 'Generiere Prompt...');
+        setResultContent(`<div class="mg-preview-label">KI denkt nach...</div><div class="mg-preview-box streaming" id="prompt-stream"></div>`);
+
+        let full = '';
+        try {
+            const resp = await fetch('/api/music/generate-prompt', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ description: desc })
+            });
+            const reader  = resp.body.getReader();
+            const decoder = new TextDecoder();
+            let buf = '';
+            while (true) {
+                const { done, value } = await reader.read();
+                if (done) break;
+                buf += decoder.decode(value, { stream: true });
+                const lines = buf.split('\n');
+                buf = lines.pop();
+                for (const line of lines) {
+                    if (!line.startsWith('data: ')) continue;
+                    try {
+                        const data = JSON.parse(line.slice(6));
+                        if (data.type === 'token') {
+                            full += data.text;
+                            const el = document.getElementById('prompt-stream');
+                            if (el) el.textContent = full.replace(/<think>[\s\S]*?<\/think>/g, '').trim();
+                        } else if (data.type === 'done') {
+                            applyGeneratedPrompt(data.caption, data.lyrics);
+                        } else if (data.type === 'error') {
+                            showError(data.text);
+                        }
+                    } catch(e) {}
+                }
+            }
+        } catch(e) {
+            showError(e.message);
+        }
+
+        isGenerating = false;
+        btn.disabled = false;
+        btn.textContent = '✨ Prompt generieren';
+    }
+
+    function applyGeneratedPrompt(caption, lyrics) {
+        document.getElementById('caption-input').value = caption || '';
+        document.getElementById('lyrics-input').value  = lyrics  || '';
+        document.getElementById('caption-field').style.display = 'block';
+        document.getElementById('lyrics-field').style.display  = 'block';
+        document.getElementById('create-btn').style.display    = 'block';
+
+        showResultState('ready', 'Prompt bereit');
+        setResultContent(`
+            <div class="mg-preview-label">Caption</div>
+            <div class="mg-preview-box">${escHtml(caption)}</div>
+            <div class="mg-preview-label" style="margin-top:10px">Lyrics Vorschau</div>
+            <div class="mg-preview-box">${escHtml((lyrics || '(instrumental)').slice(0, 300))}${lyrics && lyrics.length > 300 ? '...' : ''}</div>
+            <div class="mg-hint" style="margin-top:4px">Du kannst Caption und Lyrics links noch anpassen, dann auf "Song generieren" klicken.</div>
+        `);
+    }
+
+    // ── Create ACE-Step Task ──────────────────────────────────────────────────
+
+    async function createTask() {
+        const caption  = document.getElementById('caption-input').value.trim();
+        const lyrics   = document.getElementById('lyrics-input').value.trim();
+        const duration = parseInt(document.getElementById('duration-slider').value);
+        const seed     = parseInt(document.getElementById('seed-input').value) || -1;
+
+        if (!caption) { alert('Bitte zuerst einen Prompt generieren.'); return; }
+
+        document.getElementById('create-btn').disabled = true;
+        document.getElementById('create-btn').textContent = '⏳ Submitting...';
+
+        showResultState('generating', 'Schicke an ACE-Step...');
+        setResultContent(`<div class="mg-status"><div class="mg-status-dot active"></div><span>Task wird erstellt...</span></div>`);
+
+        // Generate reference audio if toggle is enabled AND personality_affects_music is on
+        if (document.getElementById('ref-voice-toggle').checked) {
+            const ps = await fetch('/api/personality/settings').then(r => r.json()).catch(() => ({}));
+            if (ps.affects_music !== false) {
+                await generateReferenceAudio();
+            } else {
+                referenceAudioB64 = null;
+                document.getElementById('ref-status-text').textContent = '⚠️ Deaktiviert in Settings (Personality → Einfluss auf Songtext)';
+            }
+        }
+
+        try {
+            const r = await fetch('/api/music/create', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    caption, lyrics, duration, seed,
+                    reference_audio_b64: referenceAudioB64 || ''
+                })
+            });
+            const d = await r.json();
+            if (!r.ok || d.error) throw new Error(d.error || 'Task creation failed');
+
+            currentTaskId = d.task_id;
+            startPolling();
+        } catch(e) {
+            showError(e.message);
+            document.getElementById('create-btn').disabled = false;
+            document.getElementById('create-btn').textContent = '🎵 Song generieren';
+        }
+    }
+
+    // ── Polling ──────────────────────────────────────────────────────────────
+
+    function startPolling() {
+        if (pollInterval) clearInterval(pollInterval);
+        setResultContent(`
+            <div class="mg-status">
+                <div class="mg-status-dot active"></div>
+                <span id="poll-status-text">ACE-Step generiert... (kann 30-60s dauern)</span>
+            </div>
+        `);
+        showResultState('generating', 'Generiere Song...');
+
+        let attempts = 0;
+        pollInterval = setInterval(async () => {
+            attempts++;
+            try {
+                const r = await fetch('/api/music/status', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ task_id: currentTaskId })
+                });
+                const d = await r.json();
+
+                const statusEl = document.getElementById('poll-status-text');
+                if (statusEl) statusEl.textContent = `ACE-Step generiert... (${attempts * 3}s)`;
+
+                if (d.error && !d.status) {
+                    clearInterval(pollInterval);
+                    showError(d.error);
+                    return;
+                }
+
+                if (d.status === 'completed' && d.audio_b64) {
+                    clearInterval(pollInterval);
+                    showAudioResult(d.audio_b64, d.format || 'wav', currentTaskId);
+                } else if (d.status === 'failed') {
+                    clearInterval(pollInterval);
+                    showError(d.error || 'Generation failed');
+                }
+                // status 'pending' or 'processing' → keep polling
+            } catch(e) {
+                // Network error during poll — keep trying
+                if (attempts > 60) {
+                    clearInterval(pollInterval);
+                    showError('Timeout — ACE-Step antwortet nicht');
+                }
+            }
+        }, 3000);
+    }
+
+    // ── Show Audio Result ─────────────────────────────────────────────────────
+
+    function showAudioResult(audio_b64, fmt, taskId) {
+        showResultState('done', 'Song fertig! 🎵');
+        document.getElementById('create-btn').disabled = false;
+        document.getElementById('create-btn').textContent = '🎵 Nochmal generieren';
+
+        const mime     = fmt === 'mp3' ? 'audio/mpeg' : 'audio/wav';
+        const ext      = fmt || 'wav';
+        const audioSrc = `data:${mime};base64,${audio_b64}`;
+
+        setResultContent(`
+            <div class="mg-player">
+                <div class="mg-player-title">🎵 Generierter Song</div>
+                <audio controls src="${audioSrc}" id="result-audio"></audio>
+                <div class="mg-player-actions">
+                    <a class="mg-dl-btn" id="dl-btn" download="song_${taskId}.${ext}">↓ Download ${ext.toUpperCase()}</a>
+                </div>
+            </div>
+            <div class="mg-hint">
+                Seed verwenden um denselben Song nochmal zu generieren. Caption und Lyrics anpassen für Variationen.
+            </div>
+        `);
+
+        // Set download href
+        const dlBtn = document.getElementById('dl-btn');
+        if (dlBtn) dlBtn.href = audioSrc;
+
+        // Auto-play
+        const audio = document.getElementById('result-audio');
+        if (audio) audio.play().catch(() => {});
+    }
+
+    // ── UI Helpers ────────────────────────────────────────────────────────────
+
+    function showResultState(state, subtitle) {
+        document.getElementById('result-subtitle').textContent = subtitle;
+        document.getElementById('empty-state') && (document.getElementById('empty-state').style.display = 'none');
+    }
+
+    function setResultContent(html) {
+        const panel = document.getElementById('result-panel');
+        const empty = document.getElementById('empty-state');
+        if (empty) empty.style.display = 'none';
+        // Remove previous dynamic content
+        panel.querySelectorAll('.mg-dynamic').forEach(el => el.remove());
+        const wrapper = document.createElement('div');
+        wrapper.className = 'mg-dynamic';
+        wrapper.style.cssText = 'display:flex;flex-direction:column;gap:12px;';
+        wrapper.innerHTML = html;
+        panel.appendChild(wrapper);
+    }
+
+    function showError(msg) {
+        showResultState('error', 'Fehler');
+        setResultContent(`
+            <div class="mg-status">
+                <div class="mg-status-dot error"></div>
+                <span style="color:var(--accent2)">❌ ${escHtml(msg)}</span>
+            </div>
+            <div class="mg-hint">Ist ACE-Step auf localhost:8001 erreichbar? <code>start_api_server.bat</code> starten.</div>
+        `);
+        document.getElementById('create-btn').disabled = false;
+        document.getElementById('create-btn').textContent = '🎵 Song generieren';
+    }
+
+    function escHtml(s) {
+        return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    }
+
+    // ── App Header ────────────────────────────────────────────────────────────
+
+    (async function loadAppHeader() {
+        try {
+            const [ar, lr] = await Promise.all([
+                fetch('/api/personalities/active'),
+                fetch('/api/personalities')
+            ]);
+            const { active } = await ar.json();
+            const { personalities } = await lr.json();
+            const p = personalities.find(x => x.name === active);
+            const nameEl = document.getElementById('app-name');
+            if (nameEl) nameEl.textContent = `${active} — AI Assistant`;
+            const logoEl = document.getElementById('app-logo');
+            if (logoEl && p?.has_logo)
+                logoEl.src = `/api/personalities/${active}/logo?t=${Date.now()}`;
+        } catch(e) {}
+    })();
+</script>
+<script src="frontend/navigation.js"></script>
+</body>
+</html>

@@ -160,7 +160,7 @@ async function handleSmartStream(resp, msgText, thinkId = null) {
 
     const div = document.createElement('div');
     div.className = 'msg assistant';
-    div.innerHTML = `<div class="avatar">🤖</div><div class="bubble"><div class="stream-content"></div></div>`;
+    div.innerHTML = `<div class="avatar"><img src="${typeof _assistantLogoSrc !== 'undefined' ? _assistantLogoSrc : 'assets/logo.png'}" alt="Assistant"></div><div class="bubble"><div class="stream-content"></div></div>`;
     msgs.appendChild(div);
 
     const bubble        = div.querySelector('.bubble');
@@ -175,6 +175,7 @@ async function handleSmartStream(resp, msgText, thinkId = null) {
     let reasoningBuf = "";
     let reasoningEl  = null;
     let firstEventReceived = false;
+    let searchPrefix = "";  // Für "🔍 Gesucht nach: ..." während Search-Streaming
 
     function onFirstEvent() {
         if (!firstEventReceived) {
@@ -272,16 +273,37 @@ async function handleSmartStream(resp, msgText, thinkId = null) {
                     onFirstEvent();
                     addSource(json.title, json.host, json.url);
                 }
-                else if (json.type === "search_done") {
+                else if (json.type === "search_stream_start") {
                     onFirstEvent();
                     if (stepsDiv) stepsDiv.style.display = 'none';
                     if (sourcesDiv) bubble.appendChild(sourcesDiv);
-                    streamContent.innerHTML = formatText(json.message);
+                    searchPrefix = `🔍 *Gesucht nach: ${json.query}*\n\n`;
+                    streamContent.innerHTML = formatText(searchPrefix);
+                    fullText = "";  // Reset für den gestreamten Content
+                }
+                else if (json.type === "search_done") {
+                    onFirstEvent();
+                    if (stepsDiv) stepsDiv.style.display = 'none';
+                    if (sourcesDiv && !sourcesDiv.parentElement?.classList?.contains('bubble')) {
+                        bubble.appendChild(sourcesDiv);
+                    }
+                    // Finale Darstellung mit Search-Prefix
+                    const prefix = json.query ? `🔍 *Gesucht nach: ${json.query}*\n\n` : '';
+                    const finalText = prefix + (json.message || '');
+                    const saveText = json.message || streamContent.textContent || fullText;
+                    if (json.message) {
+                        streamContent.innerHTML = formatText(finalText);
+                    }
+                    // Add copy button to search result message
+                    div.dataset.rawText = saveText;
+                    const searchActionsHtml = `<div class="msg-actions"><button class="msg-action-btn tts-btn" onclick="speakText(this.closest('.msg').dataset.rawText, this)" title="Vorlesen" style="${typeof _ttsEnabled !== 'undefined' && _ttsEnabled ? '' : 'display:none'}">🔊</button><button class="msg-action-btn" onclick="copyMessage(this)" title="Copy">📋</button></div>`;
+                    bubble.insertAdjacentHTML('beforeend', searchActionsHtml);
                     highlightCode(div);
                     history.push({ role: 'user', content: msgText });
-                    history.push({ role: 'assistant', content: json.message });
-                    await saveMsgsToDB(msgText, json.message);
+                    history.push({ role: 'assistant', content: saveText });
+                    await saveMsgsToDB(msgText, saveText);
                     msgs.scrollTop = msgs.scrollHeight;
+                    searchPrefix = "";  // Reset
                 }
                 else if (json.type === "document_done") {
                     if (stepsDiv) stepsDiv.remove();
@@ -331,10 +353,33 @@ async function handleSmartStream(resp, msgText, thinkId = null) {
                     fullText += json.text;
                     const looksLikeJson = fullText.trimStart().startsWith('{');
                     if (!looksLikeJson) {
-                        streamContent.innerHTML = formatText(fullText);
+                        streamContent.innerHTML = formatText(searchPrefix + fullText);
                         msgs.scrollTop = msgs.scrollHeight;
                     } else {
-                        streamContent.innerHTML = '<span class="typing-dots"><span>.</span><span>.</span><span>.</span></span>';
+                        // JSON-Antwort: versuche "message"-Wert live zu extrahieren
+                        const msgMatch = fullText.match(/"message"\s*:\s*"/);
+                        if (msgMatch) {
+                            // Alles nach "message": " extrahieren (unvollständiges JSON)
+                            const startIdx = msgMatch.index + msgMatch[0].length;
+                            let partial = fullText.slice(startIdx);
+                            // Trailing unescaped quote + rest abschneiden (Ende des Strings)
+                            const endMatch = partial.match(/(?<!\\)"\s*[,}]\s*$/);
+                            if (endMatch) {
+                                partial = partial.slice(0, endMatch.index);
+                            }
+                            // JSON-Escapes auflösen
+                            try {
+                                partial = partial.replace(/\\n/g, '\n').replace(/\\"/g, '"').replace(/\\\\/g, '\\');
+                            } catch(e) {}
+                            if (partial.length > 0) {
+                                streamContent.innerHTML = formatText(searchPrefix + partial);
+                                msgs.scrollTop = msgs.scrollHeight;
+                            } else {
+                                streamContent.innerHTML = '<span class="typing-dots"><span>.</span><span>.</span><span>.</span></span>';
+                            }
+                        } else {
+                            streamContent.innerHTML = '<span class="typing-dots"><span>.</span><span>.</span><span>.</span></span>';
+                        }
                     }
                 }
                 else if (json.type === "done") {
@@ -353,8 +398,32 @@ async function handleSmartStream(resp, msgText, thinkId = null) {
                             }
                             displayText = parsed.message || parsed.query || fullText;
                         }
-                    } catch (e) {}
+                    } catch (e) {
+                        // JSON.parse fehlgeschlagen (z.B. abgeschnittene Antwort bei max_tokens)
+                        // → Message-Wert per Regex extrahieren
+                        const msgMatch = fullText.match(/"message"\s*:\s*"/);
+                        if (msgMatch) {
+                            const startIdx = msgMatch.index + msgMatch[0].length;
+                            let partial = fullText.slice(startIdx);
+                            // Schließendes Quote finden (unescaped)
+                            const endMatch = partial.match(/(?<!\\)"\s*[,}]/);
+                            if (endMatch) {
+                                partial = partial.slice(0, endMatch.index);
+                            }
+                            // JSON-Escapes auflösen
+                            try {
+                                partial = partial.replace(/\\n/g, '\n').replace(/\\"/g, '"').replace(/\\\\/g, '\\');
+                            } catch(e2) {}
+                            if (partial.length > 0) {
+                                displayText = partial;
+                            }
+                        }
+                    }
                     streamContent.innerHTML = formatText(displayText);
+                    // Add copy button to streamed message
+                    div.dataset.rawText = displayText;
+                    const actionsHtml = `<div class="msg-actions"><button class="msg-action-btn tts-btn" onclick="speakText(this.closest('.msg').dataset.rawText, this)" title="Vorlesen" style="${typeof _ttsEnabled !== 'undefined' && _ttsEnabled ? '' : 'display:none'}">🔊</button><button class="msg-action-btn" onclick="copyMessage(this)" title="Copy">📋</button></div>`;
+                    bubble.insertAdjacentHTML('beforeend', actionsHtml);
                     highlightCode(div);
                     history.push({ role: 'user', content: msgText });
                     history.push({ role: 'assistant', content: displayText });
@@ -400,7 +469,7 @@ function renderChatHistory(chats) {
 }
 
 async function newChat() {
-    const resp = await fetch('/api/chats', { method: 'POST' });
+    const resp = await fetch('/api/chats', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
     const data = await resp.json();
     currentChatId = data.id;
     history = [];
@@ -443,9 +512,20 @@ async function loadChat(chatId) {
         }
         const div = document.createElement('div');
         div.className = `msg ${m.role}`;
+        div.dataset.rawText = m.content;
+        const actions = m.role === 'user'
+            ? `<div class="msg-actions">
+                   <button class="msg-action-btn" onclick="copyMessage(this)" title="Copy">📋</button>
+                   <button class="msg-action-btn" onclick="editMessage(this)" title="Edit">✏️</button>
+               </div>`
+            : `<div class="msg-actions">
+                   <button class="msg-action-btn" onclick="copyMessage(this)" title="Copy">📋</button>
+               </div>`;
         div.innerHTML = `
-            <div class="avatar">${m.role === 'user' ? '👤' : '🤖'}</div>
-            <div class="bubble">${formatText(m.content)}</div>`;
+            <div class="avatar">
+        ${m.role === 'user' ? '<img src="frontend/assets/user.png" alt="User">' : `<img src="${typeof _assistantLogoSrc !== 'undefined' ? _assistantLogoSrc : 'assets/logo.png'}" alt="Assistant">`}
+    </div>
+            <div class="bubble">${formatText(m.content)}${actions}</div>`;
         msgs.appendChild(div);
         highlightCode(div);
     }
@@ -484,7 +564,7 @@ async function deleteChat(chatId) {
 async function saveMsgsToDB(userMsg, assistantMsg) {
     const isFirstMessage = !currentChatId;
     if (!currentChatId) {
-        const resp = await fetch('/api/chats', { method: 'POST' });
+        const resp = await fetch('/api/chats', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
         const data = await resp.json();
         currentChatId = data.id;
         await loadChatHistory();
@@ -493,9 +573,9 @@ async function saveMsgsToDB(userMsg, assistantMsg) {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ messages: [
-            { role: 'user',      content: userMsg      },
-            { role: 'assistant', content: assistantMsg }
-        ]})
+                { role: 'user',      content: userMsg      },
+                { role: 'assistant', content: assistantMsg }
+            ]})
     });
     await loadChatHistory();
 
@@ -551,7 +631,7 @@ async function exportChat(chatId) {
 
 async function saveImageMsgToDB(userMsg, imgJson) {
     if (!currentChatId) {
-        const resp = await fetch('/api/chats', { method: 'POST' });
+        const resp = await fetch('/api/chats', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
         const data = await resp.json();
         currentChatId = data.id;
         await loadChatHistory();
@@ -568,13 +648,49 @@ async function saveImageMsgToDB(userMsg, imgJson) {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ messages: [
-            { role: 'user',      content: userMsg    },
-            { role: 'assistant', content: imgContent }
-        ]})
+                { role: 'user',      content: userMsg    },
+                { role: 'assistant', content: imgContent }
+            ]})
     });
     await loadChatHistory();
 }
 
 function clearChat() {
     newChat();
+}
+
+// ── COPY & EDIT MESSAGE ──
+function copyMessage(btn) {
+    const msg = btn.closest('.msg');
+    const text = msg.dataset.rawText || msg.querySelector('.bubble').innerText;
+    navigator.clipboard.writeText(text).then(() => {
+        btn.textContent = '✅';
+        setTimeout(() => btn.textContent = '📋', 1500);
+    });
+}
+
+function editMessage(btn) {
+    const msg = btn.closest('.msg');
+    const text = msg.dataset.rawText || msg.querySelector('.bubble').innerText;
+    const msgs = document.getElementById('messages');
+    const allMsgs = Array.from(msgs.querySelectorAll('.msg'));
+    const idx = allMsgs.indexOf(msg);
+
+    // Remove this message and everything after it from DOM
+    for (let i = allMsgs.length - 1; i >= idx; i--) {
+        allMsgs[i].remove();
+    }
+
+    // Trim history: each msg pair = 2 entries (user + assistant)
+    // Count how many user messages remain in DOM
+    const remainingMsgs = msgs.querySelectorAll('.msg').length;
+    // Each visible pair = 2 history entries
+    const keepPairs = Math.floor(remainingMsgs / 2);
+    history = history.slice(0, keepPairs * 2);
+
+    // Put text in input field for editing
+    const input = document.getElementById('msg-input');
+    input.value = text;
+    autoResize(input);
+    input.focus();
 }

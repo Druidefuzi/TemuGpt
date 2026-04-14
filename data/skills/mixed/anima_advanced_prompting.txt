@@ -1,0 +1,189 @@
+ANIMA (circlestone-labs/Anima) — ADVANCED PROMPTING KNOWLEDGE
+==============================================================
+
+GENERATION SETTINGS
+--------------------
+Resolution: ~1MP — e.g. 1024x1024, 896x1152, 1152x896
+Steps: 30-50
+CFG: 4-5
+
+Sampler behavior differs noticeably — pick based on desired output:
+  er_sde:             Neutral style, flat colors, sharp lines. Good default.
+  euler_a:            Softer, thinner lines. Slight 2.5D tendency.
+                      Can push CFG slightly higher without burning the image.
+  dpmpp_2m_sde_gpu:   More variety and "creative" than er_sde, similar style
+                      base. Can get too wild on some prompts.
+
+OFFICIAL TAG ORDER
+-------------------
+This is the model's trained tag structure — follow it for best results:
+
+  [quality/meta/year/safety tags] [1girl/1boy/1other] [character] [series] [artist] [general tags]
+
+Within each section, tag order is arbitrary. The section order matters though.
+
+QUALITY TAGS — BOTH SYSTEMS WORK
+----------------------------------
+Unlike most models that use only one system, Anima supports BOTH:
+
+  Human score based:
+    masterpiece, best quality, good quality, normal quality, low quality, worst quality
+
+  Aesthetic model based (PonyV7 style):
+    score_9, score_8, score_7, ..., score_1
+
+You can use either system, both together, or neither. All combinations work.
+This is unusual — most models only respond to one system or the other.
+
+Example combining both:
+  "masterpiece, best quality, score_8, ..."
+
+TIME PERIOD TAGS — UNIQUE TO ANIMA
+------------------------------------
+Anima has a trained concept of art era/period that influences style:
+
+  Specific year:  year 2025, year 2024, year 2023, ...
+  Period:         newest, recent, mid, early, old
+
+"newest" or "year 2025" tends to give more modern anime aesthetics.
+"old" or "early" tends to give retro/classic anime aesthetics.
+These are meaningful style controls — use them deliberately.
+
+META TAGS
+----------
+  highres, absurdres     — Encourages detail and resolution
+  anime screenshot       — Triggers screencap/frame-capture aesthetic
+  jpeg artifacts         — Intentional degraded aesthetic
+  official art           — Polished, on-model official-release aesthetic
+  twitter username       — Adds social media watermark artifact (usually unwanted — put in negative)
+
+SAFETY TAGS (in positive prompt)
+----------------------------------
+  safe, sensitive, nsfw, explicit
+
+Use "safe" in positive to steer away from suggestive content.
+These work as positive tags, not just as negatives.
+
+ARTIST TAGS — CRITICAL SYNTAX
+-------------------------------
+Artist tags MUST be prefixed with @. Without the @, the effect is very weak.
+
+  Correct:   @big chungus, @nnn yryr, @an2a
+  Wrong:     big chungus, nnn yryr  (barely works)
+
+Place artist tags after [series] and before [general tags] in the tag order.
+Artist tags have a strong style influence when used correctly.
+
+HYBRID PROMPTING — THE CORE FLEXIBILITY
+-----------------------------------------
+Anima was trained on tags, natural language, AND mixtures — so all three work.
+This is a genuine strength, not a workaround.
+
+Pure tag style:
+  "masterpiece, best quality, score_8, year 2024, safe, 1girl, long hair,
+   blue eyes, school uniform, outdoors, cherry blossoms, soft lighting"
+
+Pure natural language:
+  "A girl with long blue hair standing under cherry blossoms on a spring afternoon,
+   wearing a school uniform. The light is soft and warm, petals drifting in the breeze."
+  NOTE: For pure natural language, aim for AT LEAST 2 sentences.
+  Very short natural language prompts give unexpected/unstable results.
+
+Mixed (recommended):
+  "masterpiece, best quality, @artist_name. A girl with long blue hair is standing
+   under cherry blossoms, wearing a school uniform, soft warm light, petals falling."
+
+You can put quality/artist tags at the beginning, then switch to natural language.
+The model handles arbitrary mixing of both within a prompt.
+
+CHARACTER + APPEARANCE — IMPORTANT NUANCE
+-------------------------------------------
+When prompting named characters: always name the character AND describe their appearance.
+Relying only on the character name is unreliable.
+
+  Weaker:   "Fern from Sousou no Frieren, standing in a forest"
+  Better:   "Fern from Sousou no Frieren, with long purple hair and purple eyes,
+             wearing a black coat over a white dress with puffy sleeves, standing in a forest"
+
+This is EXTRA important for multiple characters. If you list names without describing
+their appearance, the model can get confused and blend or misrender characters.
+
+TAG DROPOUT — YOU DON'T NEED TO BE EXHAUSTIVE
+-----------------------------------------------
+The model was trained with random tag dropout — meaning it learned to generate
+coherent images even when tags are missing. You don't need to tag every single
+visible element. Focus on what's important and let the model fill the rest.
+
+This also means: if the model adds something you didn't ask for, it's not a bug —
+it's trained inference. Add a tag for what you DO want to crowd it out.
+
+DATASET TAGS — UNLOCKING NON-ANIME STYLES
+-------------------------------------------
+Anima was trained on two additional non-anime datasets: LAION-POP (ye-pop subset)
+and DeviantArt. These use special "dataset tags" at the very beginning of the prompt
+followed by a newline. This unlocks those distinct non-anime aesthetics.
+
+Ye-pop dataset style:
+  ye-pop
+  [Optional: image title/alt-text on second line]
+  [Your prompt describing the image]
+
+  Example:
+    ye-pop
+    Abstract figures at dusk
+    Abstract oil painting of three figures in bold, textured colors. Minimalist style,
+    faceless subjects, strong use of red and blue contrast.
+
+DeviantArt dataset style:
+  deviantart
+  [Optional: artwork title on second line]
+  [Your prompt]
+
+  Example:
+    deviantart
+    Dragon's Peak
+    Digital painting of a dragon perched on molten rock, glowing yellow eyes,
+    dark background with orange-to-purple gradient.
+
+These dataset tags are only needed when you specifically want those non-anime aesthetics.
+For normal anime/illustration output, don't use them.
+
+LIMITATIONS TO KNOW
+--------------------
+  - No realism — intentionally anime/art/illustration focused
+  - Text rendering is weak — single words sometimes work, short phrases occasionally,
+    longer text in images will not render correctly
+  - Short or vague prompts produce unexpected results — always be descriptive
+  - Without quality/artist tags, the default style is very plain and neutral
+    — always include at least quality tags, ideally also an @artist tag
+  - Stick to ~1MP resolution (1024x1024, 896x1152, 1152x896)
+
+NEGATIVE PROMPT USAGE
+----------------------
+Standard quality negatives work normally (unlike Z-Image Turbo).
+Typical useful negatives:
+  worst quality, low quality, bad anatomy, bad hands, extra fingers, missing fingers,
+  deformed, jpeg artifacts, watermark, signature, text, twitter username, blurry
+
+Safety-specific if needed:
+  nsfw, explicit, sensitive
+
+PROMPT TEMPLATE FOR ANIMA
+---------------------------
+POSITIVE:
+[year tag], [newest/recent/old], [quality: masterpiece / best quality / score_X],
+[highres/absurdres], [safe],
+[1girl/1boy etc], [character name with appearance description], [series], [@artist],
+[general content tags OR natural language description],
+[lighting, atmosphere, composition]
+
+NEGATIVE:
+worst quality, low quality, bad anatomy, bad hands, extra fingers, missing fingers,
+deformed, blurry, watermark, signature, text, jpeg artifacts
+
+FULL EXAMPLE
+-------------
+year 2024, newest, masterpiece, best quality, score_8, absurdres, safe,
+1girl, long silver hair, blue eyes, @an2a, white sundress, standing on a rooftop
+at sunset with warm golden light catching her hair, soft bokeh city background,
+gentle smile, slight breeze, cinematic composition

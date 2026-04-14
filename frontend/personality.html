@@ -1,0 +1,628 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Assistant</title>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="frontend/style.css">
+    <style>
+        * { box-sizing: border-box; }
+        body {
+            margin: 0;
+            font-family: 'Syne', sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            height: 100vh;
+            height: 100dvh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .p-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 0 20px;
+            height: 52px;
+            border-bottom: 1px solid var(--border);
+            background: var(--surface);
+            flex-shrink: 0;
+        }
+        .p-back-btn {
+            background: none;
+            border: 1px solid var(--border);
+            color: var(--muted);
+            border-radius: 8px;
+            padding: 5px 12px;
+            font-family: 'Syne', sans-serif;
+            font-size: 0.78rem;
+            cursor: pointer;
+            transition: all .15s;
+            text-decoration: none;
+        }
+        .p-back-btn:hover { border-color: var(--accent); color: var(--text); }
+        .p-header h1 { font-size: 1rem; font-weight: 700; margin: 0; }
+        .p-badge {
+            font-size: 0.7rem;
+            background: rgba(108,99,255,.15);
+            border: 1px solid var(--accent);
+            color: var(--accent);
+            border-radius: 20px;
+            padding: 2px 10px;
+        }
+
+        .p-layout {
+            display: grid;
+            grid-template-columns: 240px 1fr 1fr;
+            flex: 1;
+            overflow: hidden;
+        }
+
+        /* ── Sidebar ── */
+        .p-sidebar {
+            border-right: 1px solid var(--border);
+            background: var(--surface);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+        .p-sidebar-header {
+            padding: 14px 12px 10px;
+            border-bottom: 1px solid var(--border);
+            font-size: 0.65rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: .08em;
+            color: var(--muted);
+            flex-shrink: 0;
+        }
+        .p-list {
+            flex: 1;
+            overflow-y: auto;
+            padding: 8px;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+        .p-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 9px 10px;
+            border-radius: 8px;
+            border: 1px solid transparent;
+            cursor: pointer;
+            transition: all .12s;
+        }
+        .p-item:hover { background: rgba(108,99,255,.07); }
+        .p-item.active { background: rgba(108,99,255,.1); border-color: rgba(108,99,255,.3); }
+        .p-item.active .p-item-logo { border-color: rgba(108,99,255,.5); }
+        .p-item-logo {
+            width: 36px; height: 36px;
+            border-radius: 50%;
+            border: 2px solid rgba(108,99,255,.25);
+            object-fit: cover;
+            flex-shrink: 0;
+            background: var(--bg);
+        }
+        .p-item-info { flex: 1; min-width: 0; }
+        .p-item-name {
+            font-size: 0.82rem;
+            font-weight: 700;
+            color: var(--text);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .p-item.active .p-item-name { color: var(--accent); }
+        .p-item-preview {
+            font-size: 0.68rem;
+            color: var(--muted);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            margin-top: 1px;
+        }
+        .p-item-badge {
+            font-size: 0.6rem;
+            background: rgba(108,99,255,.2);
+            color: var(--accent);
+            border: 1px solid rgba(108,99,255,.4);
+            border-radius: 10px;
+            padding: 1px 7px;
+            flex-shrink: 0;
+            font-weight: 700;
+        }
+        .p-new-btn {
+            margin: 10px 10px 12px;
+            padding: 9px;
+            border-radius: 10px;
+            border: 1px solid rgba(108,99,255,.25);
+            background: rgba(108,99,255,.06);
+            color: var(--accent);
+            font-family: 'Syne', sans-serif;
+            font-size: 0.8rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all .15s;
+        }
+        .p-new-btn:hover { border-color: var(--accent); background: rgba(108,99,255,.12); }
+
+        /* ── Panels ── */
+        .p-panel {
+            border-right: 1px solid var(--border);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+        .p-panel:last-child { border-right: none; }
+        .p-panel-header {
+            padding: 14px 18px 10px;
+            border-bottom: 1px solid var(--border);
+            flex-shrink: 0;
+        }
+        .p-panel-title {
+            font-size: 0.65rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: .08em;
+            color: var(--muted);
+        }
+        .p-panel-subtitle {
+            font-size: 0.88rem;
+            font-weight: 700;
+            margin-top: 2px;
+        }
+        .p-panel-body {
+            flex: 1;
+            overflow-y: auto;
+            padding: 16px 18px;
+            display: flex;
+            flex-direction: column;
+            gap: 14px;
+        }
+
+        /* Fields */
+        .p-field label {
+            display: block;
+            font-size: 0.7rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: .06em;
+            color: var(--muted);
+            margin-bottom: 6px;
+        }
+        .p-input {
+            width: 100%;
+            height: 36px;
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            color: var(--text);
+            font-family: 'DM Mono', monospace;
+            font-size: 0.82rem;
+            padding: 0 12px;
+            transition: border-color .15s;
+        }
+        .p-input:focus { outline: none; border-color: var(--accent); }
+        .p-textarea {
+            width: 100%;
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            color: var(--text);
+            font-family: 'Syne', sans-serif;
+            font-size: 0.85rem;
+            padding: 10px 12px;
+            resize: vertical;
+            line-height: 1.5;
+            transition: border-color .15s;
+        }
+        .p-textarea:focus { outline: none; border-color: var(--accent); }
+        .p-select {
+            width: 100%;
+            height: 36px;
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            color: var(--text);
+            font-family: 'Syne', sans-serif;
+            font-size: 0.82rem;
+            padding: 0 10px;
+            transition: border-color .15s;
+        }
+        .p-select:focus { outline: none; border-color: var(--accent); }
+
+        .p-btn {
+            width: 100%;
+            padding: 11px;
+            border-radius: 10px;
+            border: none;
+            background: var(--accent);
+            color: #fff;
+            font-family: 'Syne', sans-serif;
+            font-size: 0.88rem;
+            font-weight: 700;
+            cursor: pointer;
+            transition: opacity .15s;
+        }
+        .p-btn:hover { opacity: .85; }
+        .p-btn:disabled { opacity: .45; cursor: not-allowed; }
+        .p-btn.secondary {
+            background: rgba(108,99,255,.15);
+            border: 1px solid var(--accent);
+            color: var(--accent);
+        }
+        .p-btn.danger {
+            background: rgba(244,67,54,.12);
+            border: 1px solid #f44336;
+            color: #f44336;
+        }
+
+        .p-hint {
+            font-size: 0.74rem;
+            color: var(--muted);
+            line-height: 1.5;
+            background: rgba(108,99,255,.05);
+            border: 1px solid rgba(108,99,255,.15);
+            border-radius: 8px;
+            padding: 8px 12px;
+        }
+
+        /* Preview box */
+        .p-preview-box {
+            flex: 1;
+            min-height: 100px;
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 14px;
+            font-family: 'Syne', sans-serif;
+            font-size: 0.85rem;
+            line-height: 1.6;
+            color: var(--muted);
+            white-space: pre-wrap;
+            word-break: break-word;
+            transition: border-color .15s;
+        }
+        .p-preview-box.streaming { border-color: var(--accent); }
+        .p-preview-box.has-content { color: var(--text); }
+
+        .p-preview-editable {
+            width: 100%;
+            flex: 1;
+            min-height: 100px;
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 14px;
+            font-family: 'Syne', sans-serif;
+            font-size: 0.85rem;
+            line-height: 1.6;
+            color: var(--text);
+            resize: none;
+            transition: border-color .15s;
+            display: none;
+        }
+        .p-preview-editable:focus { outline: none; border-color: var(--accent); }
+
+        /* Logo preview */
+        .p-logo-area {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 12px;
+            padding: 16px;
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+        }
+        .p-logo-img {
+            width: 96px; height: 96px;
+            border-radius: 16px;
+            object-fit: cover;
+            border: 2px solid var(--border);
+        }
+        .p-logo-empty {
+            width: 96px; height: 96px;
+            border-radius: 16px;
+            background: rgba(108,99,255,.08);
+            border: 2px dashed var(--border);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2rem;
+            opacity: .4;
+        }
+        .p-logo-label {
+            font-size: 0.72rem;
+            color: var(--muted);
+            text-align: center;
+        }
+
+        /* Save bar */
+        .p-save-bar {
+            padding: 14px 18px;
+            border-top: 1px solid var(--border);
+            background: var(--surface);
+            display: flex;
+            gap: 8px;
+            align-items: center;
+            flex-shrink: 0;
+        }
+        .p-save-status { font-size: 0.75rem; color: var(--muted); flex: 1; }
+
+        .p-cursor::after {
+            content: '▋';
+            animation: blink .7s step-end infinite;
+            color: var(--accent);
+        }
+        @keyframes blink { 50% { opacity: 0; } }
+
+        @media (max-width: 900px) {
+            .p-layout { grid-template-columns: 1fr; }
+            .p-sidebar { max-height: 160px; border-right: none; border-bottom: 1px solid var(--border); }
+            .p-panel { border-right: none; border-bottom: 1px solid var(--border); }
+        }
+
+        /* ── App Header (shared) ── */
+        .app-header {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            padding: 0 20px;
+            height: 52px;
+            border-bottom: 1px solid var(--border);
+            background: var(--surface);
+            flex-shrink: 0;
+        }
+        .app-brand {
+            display: flex;
+            align-items: center;
+            gap: 9px;
+            text-decoration: none;
+            flex-shrink: 0;
+        }
+        .app-logo {
+            width: 28px;
+            height: 28px;
+            border-radius: 7px;
+            object-fit: cover;
+        }
+        .app-name {
+            font-size: 0.88rem;
+            font-weight: 800;
+            color: var(--text);
+            white-space: nowrap;
+        }
+        .app-nav {
+            display: flex;
+            gap: 5px;
+            align-items: center;
+            margin-left: auto;
+        }
+        .app-tab {
+            background: none;
+            border: 1px solid var(--border);
+            color: var(--muted);
+            border-radius: 8px;
+            padding: 5px 11px;
+            font-family: 'Syne', sans-serif;
+            font-size: 0.77rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all .15s;
+            text-decoration: none;
+            white-space: nowrap;
+        }
+        .app-tab:hover { border-color: var(--accent); color: var(--text); }
+        .app-tab.active { background: rgba(108,99,255,.15); border-color: var(--accent); color: var(--accent); }
+        @media (max-width: 900px) {
+            .app-name { display: none; }
+            .app-tab { padding: 5px 7px; font-size: 0.7rem; }
+        }
+
+        /* ── Config Tabs ── */
+        .p-tabs {
+            display: flex;
+            gap: 0;
+            border-bottom: 1px solid var(--border);
+            padding: 0 14px;
+            flex-shrink: 0;
+        }
+        .p-tab {
+            padding: 10px 14px;
+            font-size: 0.78rem;
+            font-weight: 700;
+            color: var(--muted);
+            cursor: pointer;
+            border-bottom: 2px solid transparent;
+            transition: all .15s;
+            margin-bottom: -1px;
+            background: none;
+            border-top: none;
+            border-left: none;
+            border-right: none;
+            font-family: 'Syne', sans-serif;
+        }
+        .p-tab:hover { color: var(--text); }
+        .p-tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+        .p-tab-panel { display: none; flex-direction: column; gap: 14px; }
+        .p-tab-panel.active { display: flex; }
+
+        /* ── Section dividers ── */
+        .p-section-divider {
+            display: flex;
+            align-items: center;
+            gap: 7px;
+            padding: 4px 0 2px;
+        }
+        .p-section-dot {
+            width: 5px; height: 5px;
+            border-radius: 50%;
+            background: rgba(108,99,255,.6);
+            flex-shrink: 0;
+        }
+        .p-section-label {
+            font-size: 0.65rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: .08em;
+            color: rgba(108,99,255,.8);
+        }
+    </style>
+</head>
+<body>
+
+<div class="app-header">
+    <a href="/" class="app-brand">
+        <img src="frontend/assets/logo.png" class="app-logo" id="app-logo" alt="Logo">
+        <span class="app-name" id="app-name">AI Assistant</span>
+    </a>
+</div>
+
+<div class="p-layout">
+
+    <!-- Sidebar: Personality List -->
+    <div class="p-sidebar">
+        <div class="p-sidebar-header">Persönlichkeiten</div>
+        <div class="p-list" id="p-list"></div>
+        <button class="p-new-btn" onclick="newPersonality()">＋ Neue Persönlichkeit</button>
+    </div>
+
+    <!-- Config Panel with Tabs -->
+    <div class="p-panel">
+        <div class="p-panel-header">
+            <div class="p-panel-title">Konfiguration</div>
+            <div class="p-panel-subtitle" id="preview-title-left">Persönlichkeit erstellen</div>
+        </div>
+
+        <!-- Name field always visible -->
+        <div style="padding:12px 18px 0">
+            <div class="p-field">
+                <label>Name</label>
+                <input class="p-input" id="p-name" placeholder="z.B. sassy_assistant" maxlength="40">
+            </div>
+        </div>
+
+        <!-- Tabs -->
+        <div class="p-tabs">
+            <button class="p-tab active" onclick="switchTab('text')">Text</button>
+            <button class="p-tab" onclick="switchTab('logo')">Logo</button>
+            <button class="p-tab" onclick="switchTab('voice')">Stimme</button>
+        </div>
+
+        <div class="p-panel-body">
+
+            <!-- Tab: Text -->
+            <div class="p-tab-panel active" id="tab-text">
+                <div class="p-field">
+                    <label>Persönlichkeit beschreiben</label>
+                    <textarea class="p-textarea" id="p-desc" rows="4"
+                              placeholder="z.B. Ein frecher, sarkastischer Assistent der immer einen trockenen Witz parat hat."></textarea>
+                </div>
+                <button class="p-btn" id="gen-text-btn" onclick="generatePersonalityText()">Persönlichkeit generieren</button>
+
+                <div class="p-section-divider" style="margin-top:4px">
+                    <div class="p-section-dot"></div>
+                    <div class="p-section-label">Willkommens-Text</div>
+                </div>
+                <div class="p-field">
+                    <label>Kurzer Text für neuen Chat</label>
+                    <textarea class="p-textarea" id="p-desc-tagline" rows="2"
+                              placeholder="Wird automatisch generiert..."></textarea>
+                </div>
+                <button class="p-btn secondary" id="gen-desc-btn" onclick="generateDescription()" disabled>Beschreibung generieren</button>
+            </div>
+
+            <!-- Tab: Logo -->
+            <div class="p-tab-panel" id="tab-logo">
+                <div class="p-field">
+                    <label>Was soll im Logo sein?</label>
+                    <textarea class="p-textarea" id="p-logo-desc" rows="3"
+                              placeholder="z.B. robot with glowing eyes, metallic body, holding a coffee cup"></textarea>
+                </div>
+                <div class="p-field" id="field-workflow">
+                    <label>Workflow</label>
+                    <select class="p-select" id="p-workflow-select">
+                        <option value="">— Workflow wählen —</option>
+                    </select>
+                </div>
+                <div class="p-field" id="field-model">
+                    <label>Modell (optional)</label>
+                    <select class="p-select" id="p-model-select">
+                        <option value="">— Standard —</option>
+                    </select>
+                </div>
+                <button class="p-btn secondary" id="gen-logo-btn" onclick="generateLogo()">Logo generieren</button>
+                <div class="p-hint">
+                    Ohne ComfyUI: wird das Standard-Logo verwendet.
+                </div>
+            </div>
+
+            <!-- Tab: Stimme -->
+            <div class="p-tab-panel" id="tab-voice">
+                <div class="p-section-divider">
+                    <div class="p-section-dot" style="background:rgba(78,222,128,.6)"></div>
+                    <div class="p-section-label" style="color:rgba(78,222,128,.8)">Kokoro TTS</div>
+                </div>
+                <div id="voice-mixer-wrap" style="display:flex;flex-direction:column;gap:4px;max-height:220px;overflow-y:auto;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:8px">
+                    <div style="font-size:0.72rem;color:var(--muted)">Lädt Stimmen...</div>
+                </div>
+                <div style="font-size:0.68rem;color:var(--muted);margin-top:2px">Blend: <span id="voice-blend-preview" style="font-family:'DM Mono',monospace;color:var(--accent)">— global —</span></div>
+                <input type="hidden" id="p-tts-voice">
+                <div style="display:flex;gap:6px;margin-top:4px">
+                    <button class="p-btn secondary" id="voice-preview-btn" onclick="previewVoice()"
+                            style="flex:1;padding:7px;font-size:0.78rem" disabled>Vorschau</button>
+                    <button class="p-btn secondary" onclick="randomVoiceBlend()"
+                            style="padding:7px 10px;font-size:0.78rem" title="Zufällige Kombination">Zufall</button>
+                </div>
+                <audio id="voice-preview-audio" controls style="width:100%;margin-top:6px;display:none"></audio>
+                <div id="voice-preview-status" style="font-size:0.72rem;color:var(--muted);display:none"></div>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- Preview / Result Panel -->
+    <div class="p-panel">
+        <div class="p-panel-header">
+            <div class="p-panel-title">Vorschau</div>
+            <div class="p-panel-subtitle" id="preview-title">Ergebnis</div>
+        </div>
+        <div class="p-panel-body">
+
+            <!-- Logo -->
+            <div class="p-logo-area">
+                <div id="logo-preview">
+                    <div class="p-logo-empty">🤖</div>
+                </div>
+                <div class="p-logo-label" id="logo-label">Noch kein Logo generiert</div>
+            </div>
+
+            <!-- Personality text -->
+            <div id="text-display" class="p-preview-box">Persönlichkeitstext erscheint hier...</div>
+            <textarea id="text-edit" class="p-preview-editable" rows="8"
+                      placeholder="Generierter Text..."></textarea>
+
+            <!-- Welcome description -->
+            <div style="font-size:0.65rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin-top:4px">Willkommens-Beschreibung</div>
+            <div id="desc-display" class="p-preview-box" style="min-height:48px;font-size:0.82rem">Beschreibung erscheint hier...</div>
+
+
+        </div>
+        <div class="p-save-bar">
+            <span class="p-save-status" id="save-status"></span>
+            <button class="p-btn danger" id="delete-btn" onclick="deletePersonality()" style="width:auto;padding:0 14px;height:36px" disabled>🗑️</button>
+            <button class="p-btn secondary" id="activate-btn" onclick="activatePersonality()" style="width:auto;padding:0 16px;height:36px" disabled>⚡ Aktivieren</button>
+            <button class="p-btn" id="save-btn" onclick="savePersonality()" style="width:auto;padding:0 16px;height:36px" disabled>💾 Speichern</button>
+        </div>
+    </div>
+
+</div>
+<script src="frontend/personality_ui.js"></script>
+<script src="frontend/navigation.js"></script>
+</body>
+</html>

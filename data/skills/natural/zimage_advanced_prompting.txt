@@ -1,0 +1,289 @@
+Z-IMAGE TURBO — ADVANCED PROMPTING KNOWLEDGE
+=============================================
+For local LLM context. Research-backed nuances — not basics.
+Model by Tongyi-MAI (Alibaba). Released late 2025. Open-source.
+
+ARCHITECTURE — WHY IT'S FUNDAMENTALLY DIFFERENT
+-------------------------------------------------
+Z-Image Turbo is NOT a standard SDXL/SD finetune. It's a different beast entirely:
+
+  - 6 billion parameter Single-Stream Diffusion Transformer (S3-DiT)
+  - Text tokens and image tokens are processed TOGETHER in one sequence
+    (unlike SDXL where CLIP encodes text separately before diffusion)
+  - Few-step distilled Turbo model (~8 actual diffusion steps)
+  - Does NOT use classifier-free guidance (CFG) at inference
+  - Trained for strong instruction-following, including bilingual (EN + Chinese)
+  - Optimized for text rendering in images — unusually good at it
+
+This architecture means: the model reads your prompt more like an instruction manual
+than a tag cloud. It follows sentence structure and context, not just keywords.
+
+THE SINGLE MOST IMPORTANT FACT: NO NEGATIVE PROMPTS
+------------------------------------------------------
+Z-Image Turbo does NOT use negative prompts. At all.
+
+The official Tongyi-MAI team explicitly stated:
+  "Unlike traditional diffusion models, this model does not use negative prompts at all."
+
+What this means technically:
+  - guidance_scale is set to 0.0 in the official pipeline
+  - The negative prompt field in most UIs is completely ignored
+  - In ComfyUI with custom KSampler: CFG 1.0 = negatives still ignored.
+    CFG 1.2+ = weak negative subtraction begins to appear, but causes
+    over-saturation, artifacts, and "overcooking" — generally not recommended.
+
+THE NEW MINDSET: Addition, Not Subtraction
+  Old approach (SD/SDXL): Describe what you want + list what you don't want in negatives
+  Z-Image approach:        Describe EVERYTHING you want with enough detail that
+                           there's no room for the model to improvise unwanted things
+
+Think of it as briefing an extremely obedient art director:
+  "If you don't say it, it's allowed. If you say it vaguely, it will improvise."
+
+PROMPT STRUCTURE — THE OPTIMAL SCAFFOLD
+-----------------------------------------
+Z-Image prefers structured, narrative prompts. Not tag clouds — sentences.
+
+Recommended order:
+  1. Shot type & composition
+  2. Subject identity & key attributes
+  3. Clothing / outfit (be explicit)
+  4. Action / pose
+  5. Environment & background
+  6. Lighting
+  7. Mood / atmosphere
+  8. Style / medium
+  9. Technical quality notes
+  10. Constraint clauses (what to avoid — phrased as positive instructions)
+
+Full example scaffold:
+  "[Shot type] of [subject with 2-4 attributes], [explicit clothing description],
+  [action/pose], [environment with 1-2 props max], [lighting description],
+  [mood], [style/medium], [resolution/quality notes], [constraint clause]."
+
+Concrete example:
+  "A medium-shot portrait of a woman in her 30s with natural brown hair,
+  wearing a dark business suit, fully clothed, standing in a modern office
+  with a soft blurred background, soft diffused daylight, calm expression,
+  realistic photography, 50mm lens, shallow depth of field, 4K quality,
+  plain background, no logos, no text, no watermark."
+
+PROMPT LENGTH — THE SWEET SPOT
+--------------------------------
+Z-Image Turbo handles long prompts well — it's designed for them.
+
+  - Official default max: 512 tokens
+  - Can be raised to 1024 tokens in code if needed
+  - Community finding: attention starts fading after ~75 tokens in practice
+    → Put the most critical elements (subject + key attributes) at the START
+  - Hundreds of words are fine; 600-1000+ words start hitting token limits
+    and can cause very low variation between generations
+
+Rule: Front-load your priorities. The model reads with diminishing attention.
+
+NATURAL LANGUAGE OVER TAGS — THE KEY DIFFERENCE
+-------------------------------------------------
+Z-Image does NOT perform well with Danbooru-style tag lists.
+Its text encoder is trained on natural language, not tag databases.
+
+  Wrong (tag-list style):
+    1girl, brown hair, business suit, office, soft lighting, realistic, 4K
+
+  Right (natural language):
+    A professional woman with brown hair wearing a business suit, standing
+    in a modern office with soft natural lighting, realistic photography, 4K.
+
+The S3-DiT architecture processes your text as coherent language. Full sentences
+give it more context to work with. Tags give it isolated fragments.
+
+Specific cases where tags still work:
+  - Technical photography terms: "50mm lens", "f/1.8 aperture", "bokeh"
+  - Established style terms: "cinematic", "watercolor", "concept art"
+  - Resolution markers: "4K", "8K", "ultra-detailed", "sharp focus"
+  - Texture specifics: "film grain", "Kodak Portra 400", "shot on Leica M6"
+
+These work because they're industry-standard terms the model was trained on
+as meaningful concepts — not vague keywords.
+
+REPLACING NEGATIVE PROMPTS WITH CONSTRAINT CLAUSES
+----------------------------------------------------
+Since negatives don't work, you describe what you DON'T want as positive constraints.
+Place these at the END of the prompt, after establishing the main scene.
+
+Common constraint clause patterns:
+  "...plain studio background, no text, no watermark, no logos, no extra people."
+  "...wearing a complete outfit, fully clothed, modest professional attire."
+  "...clean composition, no artifacts, no blurriness, crisp details."
+  "...single subject only, no additional figures in background."
+
+The model's strong instruction-following means phrases like "no watermark" and
+"no text overlay" are understood even without traditional CFG guidance.
+
+For anatomy:
+  Instead of: (negative) bad hands, extra fingers
+  Use:        "hands clearly visible with natural finger count, proper anatomy"
+
+For quality:
+  Instead of: (negative) blurry, low quality, worst quality
+  Use:        "sharp focus, 8K resolution, highly detailed, masterpiece quality"
+
+QUALITY LANGUAGE FOR Z-IMAGE
+------------------------------
+Z-Image has its own quality vocabulary. These work well:
+
+  Image quality:    sharp focus, ultra-detailed, 8K resolution, highly detailed,
+                    photorealistic, masterpiece quality, professional quality
+
+  Texture:          film grain, natural skin texture, fabric texture visible,
+                    realistic material rendering
+                    NOTE: "If your images look plastic, you forgot texture words."
+                    Always add material/texture descriptors for realism.
+
+  Camera tech:      shot on [camera model], [lens] lens, f/[aperture], ISO [number],
+                    shallow depth of field, cinematic aspect ratio
+                    Examples: "Shot on Canon EOS R5", "85mm portrait lens",
+                    "Kodak Portra 400 film grain", "Shot on Leica M6"
+
+  Style markers:    photorealistic, editorial photography, digital art,
+                    watercolor illustration, concept art, manga style,
+                    flat vector illustration, 3D render
+
+LIGHTING — Z-IMAGE RESPONDS EXCEPTIONALLY WELL TO THIS
+--------------------------------------------------------
+Lighting descriptions have outsized influence on Z-Image outputs:
+
+  Natural:          soft diffused daylight, golden hour light, overcast soft light,
+                    dappled sunlight filtering through trees, blue hour
+
+  Studio:           studio portrait lighting, three-point lighting, ring light,
+                    soft box diffusion, flat commercial lighting
+
+  Cinematic:        cinematic warm key light, dramatic side lighting, rim lighting,
+                    noir high-contrast lighting, hard shadows, motivated light source
+
+  Atmospheric:      warm candlelight, neon glow, bioluminescent light,
+                    volumetric fog with god rays, moonlight casting silver light
+
+Pro tip from community: Specify BOTH the quality (soft/hard) AND the source/direction:
+  "soft diffused daylight from the left" beats just "soft lighting"
+  "cinematic warm key light with subtle rim from behind" beats just "cinematic"
+
+TEXT IN IMAGES — Z-IMAGE'S SECRET WEAPON
+------------------------------------------
+Z-Image is unusually good at rendering legible text in images.
+Most diffusion models fail catastrophically at this. Z-Image doesn't.
+
+Rules for text rendering:
+  1. Write the exact text inside quotation marks in the prompt
+  2. Specify font style and size context
+  3. Specify placement (top, bottom, center, etc.)
+
+Examples:
+  "...a rustic wooden sign clearly reads 'OPEN' in bold serif font."
+  "...a neon sign reading '未来世界' glowing in the rain."
+  "...bold headline at the top reads 'Welcome' in large sans-serif."
+
+Multilingual: Z-Image handles English and Chinese natively. Other languages may vary.
+
+If text is appearing unwanted: add "no text overlay, no typography, no writing" to
+your constraint clause.
+
+CFG & STEPS — PRACTICAL SETTINGS
+-----------------------------------
+Steps:
+  4 steps:  Very fast. Good for rapid iteration and drafts.
+  8 steps:  Recommended default. Best balance of speed and quality.
+             Textures become noticeably richer vs 4 steps.
+  12 steps: Diminishing returns. Useful only for maximum sharpness,
+            especially for text edges.
+  30+ steps: Not recommended. Designed for 8-12, higher is wasteful.
+
+CFG:
+  0.0:   Official recommendation. Negatives ignored, maximum Turbo behavior.
+  1.0:   In ComfyUI: negatives still effectively ignored.
+  1.2:   Weak negative subtraction begins. Minor effect.
+  2.0+:  Stronger negative effect, but causes over-saturation and artifacts.
+         The "Turbo" quality degrades noticeably.
+
+Recommendation: Use 0.0 or 1.0. Only experiment with higher CFG if you specifically
+need weak negative guidance and accept the quality trade-off.
+
+Resolution:
+  1024×1024: Native demo size, best quality.
+  832×1216:  Portrait
+  1216×832:  Landscape
+  768×512:   Draft quality, fast iteration
+
+LORA WEIGHTS — TURBO-SPECIFIC BEHAVIOR
+----------------------------------------
+LoRA works with Z-Image but behaves differently than in SDXL:
+
+  Recommended weight range: 0.7 – 0.9
+  DO NOT use 1.0: Turbo models are sensitive — full weight causes "overcooking":
+                  oversaturation, color artifacts, loss of natural look.
+  0.7-0.8:  Natural, subtle style influence
+  0.9:      Stronger but still controlled
+  1.0+:     Risk of artifacts and unnatural output
+
+SEED & ITERATION STRATEGY
+---------------------------
+Z-Image shows very low variation with the same prompt + same seed.
+This is actually a feature — use it deliberately:
+
+  1. Fix seed while iterating the prompt → you see prompt differences, not randomness
+  2. Once prompt is good, vary seed for creative variation
+  3. Low variation per seed means: if you don't like the result, change the prompt
+     (the problem is usually the prompt, not just the seed)
+
+Community finding: very long prompts (600-1000+ words) actually produce even LESS
+variation across seeds. If you need diversity, keep prompts under ~300 words and
+vary seeds.
+
+COMMON MISTAKES
+----------------
+1. Using negative prompt fields — they are ignored. Waste of time.
+   Put constraints in the positive prompt instead.
+
+2. Writing tag lists instead of sentences — Z-Image is a language model at heart.
+   Full sentences outperform tag clouds every time.
+
+3. Conflicting style instructions: "photorealistic anime style" confuses the model.
+   Its strong instruction-following means contradictions create uncanny valley results.
+   Pick ONE style direction and commit to it.
+
+4. Forgetting texture words — outputs look plastic without them.
+   Always include material descriptors: "natural skin texture", "fabric weave visible",
+   "aged wood grain", "metallic surface with subtle scratches".
+
+5. Front-loading unimportant details — the model's attention diminishes after ~75 tokens.
+   Critical elements (subject, key attributes) must come FIRST.
+
+6. Too many steps — it's a Turbo model. 8 steps is the sweet spot.
+   Running 30+ steps wastes compute and doesn't improve quality.
+
+7. Raising CFG expecting quality gains — higher CFG causes overcooking, not improvement.
+
+PROMPT TEMPLATE FOR Z-IMAGE
+-----------------------------
+POSITIVE:
+[Shot type, e.g. "A medium-shot portrait"] of [subject + 2-4 attributes],
+[explicit clothing description], [action/pose],
+[environment description, 1-2 sentences],
+[lighting: quality + direction + source],
+[mood/atmosphere],
+[style/medium], [camera/lens if applicable], [resolution quality],
+[constraint clause: "no text, no watermark, no logos, clean background"]
+
+NEGATIVE: (leave empty or don't use — it's ignored)
+
+COMPARISON SUMMARY: ILLUSTRIOUS vs ANIMA vs Z-IMAGE
+-----------------------------------------------------
+Illustrious:  Tag-based, order-sensitive, score_X quality system, SDXL architecture.
+              Best with: precise Danbooru tag control, anime/illustration.
+
+Anima:        Hybrid tags + natural language, "very aesthetic" quality system,
+              SDXL-adjacent. Best with: atmospheric anime, flexible composition.
+
+Z-Image:      Full natural language sentences, NO negative prompts, S3-DiT architecture,
+              Turbo distilled. Best with: photorealism, text-in-image, fast iteration,
+              complex multi-element scenes that need strong instruction-following.

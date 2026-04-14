@@ -1,0 +1,1330 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Assistant</title>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="frontend/style.css">
+    <style>
+        * { box-sizing: border-box; }
+
+        body {
+            margin: 0;
+            font-family: 'Syne', sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            height: 100vh;
+            height: 100dvh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        /* ── Header ── */
+        .cr-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 0 20px;
+            height: 52px;
+            border-bottom: 1px solid var(--border);
+            background: var(--surface);
+            flex-shrink: 0;
+        }
+        .cr-back-btn {
+            background: none;
+            border: 1px solid var(--border);
+            color: var(--muted);
+            border-radius: 8px;
+            padding: 5px 12px;
+            font-family: 'Syne', sans-serif;
+            font-size: 0.78rem;
+            cursor: pointer;
+            transition: all .15s;
+            text-decoration: none;
+        }
+        .cr-back-btn:hover { border-color: var(--accent); color: var(--text); }
+        .cr-header h1 { font-size: 1rem; font-weight: 700; margin: 0; }
+        .cr-header-badge {
+            font-size: 0.7rem;
+            background: rgba(108,99,255,.15);
+            border: 1px solid var(--accent);
+            color: var(--accent);
+            border-radius: 20px;
+            padding: 2px 10px;
+        }
+
+        /* ── Layout ── */
+        .cr-layout {
+            display: grid;
+            grid-template-columns: 220px 1fr 1fr;
+            flex: 1;
+            overflow: hidden;
+        }
+
+        /* ── Sidebar ── */
+        .cr-sidebar {
+            border-right: 1px solid var(--border);
+            background: var(--surface);
+            display: flex;
+            flex-direction: column;
+            padding: 16px 12px;
+            gap: 6px;
+            overflow-y: auto;
+        }
+        .cr-sidebar-label {
+            font-size: 0.65rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: .08em;
+            color: var(--muted);
+            padding: 0 4px;
+            margin-bottom: 4px;
+            margin-top: 8px;
+        }
+        .cr-sidebar-label:first-child { margin-top: 0; }
+
+        .cr-mode-btn {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 9px 12px;
+            border-radius: 8px;
+            border: 1px solid transparent;
+            background: none;
+            color: var(--muted);
+            font-family: 'Syne', sans-serif;
+            font-size: 0.82rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all .15s;
+            text-align: left;
+            width: 100%;
+        }
+        .cr-mode-btn:hover { background: rgba(108,99,255,.08); color: var(--text); }
+        .cr-mode-btn.active {
+            background: rgba(108,99,255,.15);
+            border-color: var(--accent);
+            color: var(--accent);
+        }
+        .cr-mode-icon { font-size: 1.1rem; flex-shrink: 0; }
+
+        .cr-sidebar-divider {
+            height: 1px;
+            background: var(--border);
+            margin: 8px 0;
+        }
+
+        /* ── Input Panel ── */
+        .cr-input-panel {
+            border-right: 1px solid var(--border);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+        .cr-panel-header {
+            padding: 14px 18px 10px;
+            border-bottom: 1px solid var(--border);
+            flex-shrink: 0;
+        }
+        .cr-panel-title {
+            font-size: 0.7rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: .08em;
+            color: var(--muted);
+        }
+        .cr-panel-subtitle {
+            font-size: 0.85rem;
+            font-weight: 700;
+            margin-top: 2px;
+            color: var(--text);
+        }
+        .cr-panel-body {
+            flex: 1;
+            overflow-y: auto;
+            padding: 16px 18px;
+            display: flex;
+            flex-direction: column;
+            gap: 14px;
+        }
+
+        .cr-field label {
+            display: block;
+            font-size: 0.72rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: .06em;
+            color: var(--muted);
+            margin-bottom: 6px;
+        }
+        .cr-textarea {
+            width: 100%;
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            color: var(--text);
+            font-family: 'Syne', sans-serif;
+            font-size: 0.85rem;
+            padding: 10px 12px;
+            resize: vertical;
+            transition: border-color .15s;
+            line-height: 1.5;
+        }
+        .cr-textarea:focus { outline: none; border-color: var(--accent); }
+
+        .cr-wildcard-type {
+            display: flex;
+            gap: 8px;
+        }
+        .cr-wc-btn {
+            flex: 1;
+            padding: 7px;
+            border-radius: 8px;
+            border: 1px solid var(--border);
+            background: none;
+            color: var(--muted);
+            font-family: 'Syne', sans-serif;
+            font-size: 0.78rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all .15s;
+        }
+        .cr-wc-btn.active {
+            background: rgba(108,99,255,.15);
+            border-color: var(--accent);
+            color: var(--accent);
+        }
+
+        .cr-hint {
+            font-size: 0.75rem;
+            color: var(--muted);
+            line-height: 1.5;
+            background: rgba(108,99,255,.05);
+            border: 1px solid rgba(108,99,255,.15);
+            border-radius: 8px;
+            padding: 8px 12px;
+        }
+
+        .cr-generate-btn {
+            width: 100%;
+            padding: 11px;
+            border-radius: 10px;
+            border: none;
+            background: var(--accent);
+            color: #fff;
+            font-family: 'Syne', sans-serif;
+            font-size: 0.88rem;
+            font-weight: 700;
+            cursor: pointer;
+            transition: opacity .15s;
+            margin-top: auto;
+        }
+        .cr-generate-btn:hover { opacity: 0.85; }
+        .cr-generate-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+        /* ── Preview Panel ── */
+        .cr-preview-panel {
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+        .cr-preview-body {
+            flex: 1;
+            overflow-y: auto;
+            padding: 16px 18px;
+            display: flex;
+            flex-direction: column;
+            gap: 14px;
+        }
+
+        .cr-preview-box {
+            flex: 1;
+            min-height: 200px;
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 14px;
+            font-family: 'DM Mono', monospace;
+            font-size: 0.8rem;
+            line-height: 1.6;
+            color: var(--text);
+            white-space: pre-wrap;
+            word-break: break-word;
+            position: relative;
+            transition: border-color .15s;
+        }
+        .cr-preview-box.streaming { border-color: var(--accent); }
+        .cr-preview-box.empty {
+            color: var(--muted);
+            font-family: 'Syne', sans-serif;
+            font-size: 0.82rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+            gap: 8px;
+            text-align: center;
+        }
+        .cr-preview-empty-icon { font-size: 2.5rem; opacity: 0.3; }
+
+        .cr-preview-editable {
+            width: 100%;
+            flex: 1;
+            min-height: 200px;
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 14px;
+            font-family: 'DM Mono', monospace;
+            font-size: 0.8rem;
+            line-height: 1.6;
+            color: var(--text);
+            resize: none;
+            transition: border-color .15s;
+            display: none;
+        }
+        .cr-preview-editable:focus { outline: none; border-color: var(--accent); }
+
+        /* ── Save Bar ── */
+        .cr-save-bar {
+            padding: 14px 18px;
+            border-top: 1px solid var(--border);
+            background: var(--surface);
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            flex-shrink: 0;
+        }
+        .cr-name-input {
+            flex: 1;
+            height: 36px;
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            color: var(--text);
+            font-family: 'DM Mono', monospace;
+            font-size: 0.82rem;
+            padding: 0 12px;
+            transition: border-color .15s;
+        }
+        .cr-name-input:focus { outline: none; border-color: var(--accent); }
+        .cr-name-input::placeholder { color: var(--muted); }
+        .cr-name-ext {
+            font-family: 'DM Mono', monospace;
+            font-size: 0.78rem;
+            color: var(--muted);
+            flex-shrink: 0;
+        }
+        .cr-save-btn {
+            height: 36px;
+            padding: 0 18px;
+            border-radius: 8px;
+            border: none;
+            background: rgba(108,99,255,.2);
+            border: 1px solid var(--accent);
+            color: var(--accent);
+            font-family: 'Syne', sans-serif;
+            font-size: 0.82rem;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all .15s;
+            flex-shrink: 0;
+            white-space: nowrap;
+        }
+        .cr-save-btn:hover { background: var(--accent); color: #fff; }
+        .cr-save-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+        .cr-save-btn.success {
+            background: rgba(50,200,100,.2);
+            border-color: #32c864;
+            color: #32c864;
+        }
+
+        .cr-save-status {
+            font-size: 0.75rem;
+            color: var(--muted);
+            flex-shrink: 0;
+        }
+
+        .cr-input-toggle {
+            display: flex;
+            gap: 6px;
+            margin-bottom: 14px;
+        }
+        .cr-input-mode-btn {
+            flex: 1;
+            padding: 7px;
+            border-radius: 8px;
+            border: 1px solid var(--border);
+            background: none;
+            color: var(--muted);
+            font-family: 'Syne', sans-serif;
+            font-size: 0.8rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all .15s;
+        }
+        .cr-input-mode-btn.active {
+            background: rgba(108,99,255,.15);
+            border-color: var(--accent);
+            color: var(--accent);
+        }
+
+        .cr-img-drop {
+            width: 100%;
+            min-height: 140px;
+            border: 2px dashed var(--border);
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: border-color .15s, background .15s;
+            overflow: hidden;
+            position: relative;
+        }
+        .cr-img-drop:hover, .cr-img-drop.drag-over {
+            border-color: var(--accent);
+            background: rgba(108,99,255,.06);
+        }
+        .cr-img-drop-hint {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 6px;
+            color: var(--muted);
+            font-size: 0.8rem;
+            pointer-events: none;
+        }
+        .cr-img-drop-hint span:first-child { font-size: 2rem; }
+        .cr-img-preview {
+            max-width: 100%;
+            max-height: 200px;
+            border-radius: 8px;
+            object-fit: contain;
+            display: block;
+        }
+        .cr-img-clear {
+            position: absolute;
+            top: 6px; right: 6px;
+            background: rgba(0,0,0,.5);
+            border: none;
+            border-radius: 50%;
+            width: 24px; height: 24px;
+            color: #fff;
+            font-size: 0.8rem;
+            cursor: pointer;
+            display: none;
+            align-items: center;
+            justify-content: center;
+        }
+        .cr-img-drop:hover .cr-img-clear { display: flex; }
+        .cr-cursor::after {
+            content: '▋';
+            animation: blink .7s step-end infinite;
+            color: var(--accent);
+        }
+        @keyframes blink { 50% { opacity: 0; } }
+
+        /* ── Critic ── */
+        .cr-critic-toggle {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 0 0;
+        }
+        .cr-critic-toggle label {
+            font-size: 0.75rem;
+            color: var(--muted);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            user-select: none;
+        }
+        .cr-critic-btn {
+            height: 30px;
+            padding: 0 14px;
+            border-radius: 8px;
+            border: 1px solid var(--border);
+            background: none;
+            color: var(--muted);
+            font-family: 'Syne', sans-serif;
+            font-size: 0.78rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all .15s;
+            margin-left: auto;
+        }
+        .cr-critic-btn:hover { border-color: var(--accent); color: var(--accent); }
+        .cr-critic-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+        .cr-critic-result {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 12px 14px;
+            font-size: 0.82rem;
+            display: none;
+        }
+        .cr-critic-result.visible { display: block; }
+        .cr-critic-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 8px;
+        }
+        .cr-critic-title { font-weight: 700; color: var(--text); font-size: 0.8rem; }
+        .cr-critic-score {
+            padding: 2px 10px;
+            border-radius: 20px;
+            color: #fff;
+            font-weight: 700;
+            font-size: 0.82rem;
+        }
+        .cr-critic-issues {
+            margin: 6px 0 8px 0;
+            padding-left: 16px;
+            color: var(--muted);
+            line-height: 1.6;
+        }
+        .cr-critic-improved-label {
+            font-size: 0.7rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: .06em;
+            color: var(--accent);
+            margin-bottom: 6px;
+        }
+        .cr-critic-apply-btn {
+            margin-top: 8px;
+            height: 30px;
+            padding: 0 14px;
+            border-radius: 8px;
+            border: none;
+            background: var(--accent);
+            color: #fff;
+            font-family: 'Syne', sans-serif;
+            font-size: 0.78rem;
+            font-weight: 700;
+            cursor: pointer;
+            transition: opacity .15s;
+        }
+        .cr-critic-apply-btn:hover { opacity: 0.85; }
+
+        /* ── Mobile ── */
+        @media (max-width: 900px) {
+            .cr-layout {
+                grid-template-columns: 1fr;
+                grid-template-rows: auto 1fr 1fr;
+            }
+            .cr-sidebar {
+                flex-direction: row;
+                flex-wrap: wrap;
+                border-right: none;
+                border-bottom: 1px solid var(--border);
+                padding: 10px;
+                gap: 4px;
+            }
+            .cr-sidebar-label { display: none; }
+            .cr-sidebar-divider { display: none; }
+            .cr-mode-btn { width: auto; flex: 1; min-width: 80px; justify-content: center; }
+            .cr-input-panel { border-right: none; border-bottom: 1px solid var(--border); }
+        }
+
+        /* ── App Header (shared) ── */
+        .app-header {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            padding: 0 20px;
+            height: 52px;
+            border-bottom: 1px solid var(--border);
+            background: var(--surface);
+            flex-shrink: 0;
+        }
+        .app-brand {
+            display: flex;
+            align-items: center;
+            gap: 9px;
+            text-decoration: none;
+            flex-shrink: 0;
+        }
+        .app-logo {
+            width: 28px;
+            height: 28px;
+            border-radius: 7px;
+            object-fit: cover;
+        }
+        .app-name {
+            font-size: 0.88rem;
+            font-weight: 800;
+            color: var(--text);
+            white-space: nowrap;
+        }
+        .app-nav {
+            display: flex;
+            gap: 5px;
+            align-items: center;
+            margin-left: auto;
+        }
+        .app-tab {
+            background: none;
+            border: 1px solid var(--border);
+            color: var(--muted);
+            border-radius: 8px;
+            padding: 5px 11px;
+            font-family: 'Syne', sans-serif;
+            font-size: 0.77rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all .15s;
+            text-decoration: none;
+            white-space: nowrap;
+        }
+        .app-tab:hover { border-color: var(--accent); color: var(--text); }
+        .app-tab.active { background: rgba(108,99,255,.15); border-color: var(--accent); color: var(--accent); }
+        @media (max-width: 900px) {
+            .app-name { display: none; }
+            .app-tab { padding: 5px 7px; font-size: 0.7rem; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="app-header">
+    <a href="/" class="app-brand">
+        <img src="frontend/assets/logo.png" class="app-logo" id="app-logo" alt="Logo">
+        <span class="app-name" id="app-name">AI Assistant</span>
+    </a>
+</div>
+
+<div class="cr-layout">
+
+    <!-- Sidebar -->
+    <div class="cr-sidebar">
+        <div class="cr-sidebar-label">Erstellen</div>
+        <button class="cr-mode-btn active" data-mode="character" onclick="setMode('character', this)">
+            <span class="cr-mode-icon"></span> Character
+        </button>
+        <button class="cr-mode-btn" data-mode="style" onclick="setMode('style', this)">
+            <span class="cr-mode-icon"></span> Style
+        </button>
+        <button class="cr-mode-btn" data-mode="theme" onclick="setMode('theme', this)">
+            <span class="cr-mode-icon"></span> Theme
+        </button>
+        <div class="cr-sidebar-divider"></div>
+        <div class="cr-sidebar-label">Sonstiges</div>
+        <button class="cr-mode-btn" data-mode="wildcard" onclick="setMode('wildcard', this)">
+            <span class="cr-mode-icon"></span> Wildcard
+        </button>
+        <button class="cr-mode-btn" data-mode="sort" onclick="setMode('sort', this)">
+            <span class="cr-mode-icon">🗂️</span> Sort
+        </button>
+        <div class="cr-sidebar-divider"></div>
+        <div class="cr-sidebar-label">Utilities</div>
+        <button class="cr-mode-btn" data-mode="user_avatar" onclick="setMode('user_avatar', this)">
+            <span class="cr-mode-icon">👤</span> User Avatar
+        </button>
+    </div>
+
+    <!-- Input Panel -->
+    <div class="cr-input-panel">
+        <div class="cr-panel-header">
+            <div class="cr-panel-title">Beschreibung</div>
+            <div class="cr-panel-subtitle" id="input-subtitle">Character beschreiben</div>
+        </div>
+        <div class="cr-panel-body">
+
+            <!-- Input mode toggle -->
+            <div class="cr-input-toggle">
+                <button class="cr-input-mode-btn active" id="mode-text-btn" onclick="setInputMode('text')">📝 Text</button>
+                <button class="cr-input-mode-btn" id="mode-img-btn" onclick="setInputMode('image')">🖼️ Bild</button>
+            </div>
+
+            <!-- Text input -->
+            <div id="text-input-wrap" class="cr-field">
+                <label id="desc-label">Beschreib deinen Charakter</label>
+                <textarea class="cr-textarea" id="desc-input" rows="6"
+                          placeholder="z.B. Eine kampferprobte Kriegerin mit roten Haaren, schwerer Rüstung und einem großen Schwert. Sie wirkt einschüchternd aber fair."
+                          onkeydown="handleKey(event)"></textarea>
+            </div>
+
+            <!-- Image input -->
+            <div id="image-input-wrap" class="cr-field" style="display:none">
+                <label id="img-label">Bild hochladen oder reinziehen</label>
+                <div class="cr-img-drop" id="img-drop"
+                     ondragover="event.preventDefault(); this.classList.add('drag-over')"
+                     ondragleave="this.classList.remove('drag-over')"
+                     ondrop="handleImgDrop(event)"
+                     onclick="document.getElementById('img-file').click()">
+                    <div id="img-preview-wrap">
+                        <div class="cr-img-drop-hint"><span>🖼️</span><span>Bild ziehen oder klicken</span></div>
+                    </div>
+                    <button class="cr-img-clear" id="img-clear-btn" onclick="event.stopPropagation(); clearImage()">✕</button>
+                    <input type="file" id="img-file" accept="image/*" style="display:none"
+                           onchange="loadImageFile(this.files[0])">
+                </div>
+                <textarea class="cr-textarea" id="img-desc-input" rows="2"
+                          placeholder="Optional: zusätzliche Hinweise zum Bild..."
+                          style="margin-top:8px"></textarea>
+            </div>
+
+            <!-- Wildcard-spezifisch -->
+            <div class="cr-field" id="wc-type-field" style="display:none">
+                <label>Wildcard-Typ</label>
+                <div class="cr-wildcard-type">
+                    <button class="cr-wc-btn active" id="wc-replace-btn" onclick="setWcType('replace')">
+                        🔄 Replace<br><small style="font-weight:400;font-size:0.7rem">Werte die ersetzt werden</small>
+                    </button>
+                    <button class="cr-wc-btn" id="wc-prepend-btn" onclick="setWcType('prepend')">
+                        ⬆️ Prepend<br><small style="font-weight:400;font-size:0.7rem">Vorne eingefügt</small>
+                    </button>
+                </div>
+            </div>
+
+            <div class="cr-hint" id="mode-hint">
+                Beschreib den Charakter in Worten — Name, Aussehen, Kleidung, Waffen, Persönlichkeit. Die KI generiert daraus Prompt-Tags.
+            </div>
+
+            <button class="cr-generate-btn" id="generate-btn" onclick="generate()">✨ Generieren</button>
+
+            <!-- User Avatar mode UI -->
+            <div id="avatar-input-wrap" style="display:none;flex-direction:column;gap:14px;flex:1">
+                <div class="cr-field">
+                    <label>Avatar beschreiben</label>
+                    <textarea class="cr-textarea" id="avatar-desc" rows="4"
+                              placeholder="z.B. young woman with short silver hair, cyberpunk aesthetic, glowing blue eyes, confident smile"></textarea>
+                </div>
+                <div class="cr-field">
+                    <label>Workflow</label>
+                    <select class="cr-textarea" id="avatar-workflow-select" style="height:36px;padding:0 8px;resize:none">
+                        <option value="">— Workflow wählen —</option>
+                    </select>
+                </div>
+                <div class="cr-field">
+                    <label>Modell (optional)</label>
+                    <select class="cr-textarea" id="avatar-model-select" style="height:36px;padding:0 8px;resize:none">
+                        <option value="">— Standard —</option>
+                    </select>
+                </div>
+                <div class="cr-hint">
+                    Bild wird direkt als <code>frontend/assets/user.png</code> gespeichert und sofort als User-Avatar verwendet.
+                </div>
+                <button class="cr-generate-btn" id="avatar-gen-btn" onclick="generateUserAvatar()">🎨 Avatar generieren</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Preview Panel -->
+    <div class="cr-preview-panel">
+        <div class="cr-panel-header">
+            <div class="cr-panel-title">Vorschau</div>
+            <div class="cr-panel-subtitle" id="preview-subtitle">Generierter Inhalt</div>
+        </div>
+        <div class="cr-preview-body">
+            <div id="preview-display" class="cr-preview-box empty">
+                <div class="cr-preview-empty-icon">✨</div>
+                <span>Noch nichts generiert</span>
+            </div>
+            <textarea id="preview-edit" class="cr-preview-editable" rows="10"
+                      placeholder="Generierter Inhalt erscheint hier..."></textarea>
+
+            <!-- User Avatar Preview -->
+            <div id="avatar-preview-wrap" style="display:none;flex-direction:column;align-items:center;gap:16px;padding-top:8px">
+                <div id="avatar-preview-img-wrap" style="width:180px;height:240px;border-radius:16px;border:2px dashed var(--border);background:rgba(108,99,255,.05);display:flex;align-items:center;justify-content:center;overflow:hidden;flex-shrink:0">
+                    <span style="font-size:3rem;opacity:.25">👤</span>
+                </div>
+                <div id="avatar-status-label" style="font-size:0.75rem;color:var(--muted);text-align:center">Noch kein Avatar generiert</div>
+                <button class="cr-save-btn" id="avatar-save-btn" onclick="saveUserAvatar()" disabled>💾 Als user.png speichern</button>
+                <span id="avatar-save-status" class="cr-save-status"></span>
+            </div>
+
+            <!-- Critic -->
+            <div class="cr-critic-toggle">
+                <label>
+                    <input type="checkbox" id="critic-enabled" style="accent-color:var(--accent)">
+                    🔍 Auto-Critic nach Generierung
+                </label>
+                <button class="cr-critic-btn" id="critic-btn" onclick="runCreatorCritic()" disabled>
+                    🔍 Jetzt analysieren
+                </button>
+            </div>
+            <div class="cr-critic-result" id="critic-result"></div>
+        </div>
+        <div class="cr-save-bar">
+            <input type="text" class="cr-name-input" id="save-name"
+                   placeholder="dateiname" maxlength="60">
+            <span class="cr-name-ext">.txt</span>
+            <button class="cr-save-btn" id="save-btn" onclick="saveContent()" disabled>💾 Speichern</button>
+            <span class="cr-save-status" id="save-status"></span>
+        </div>
+    </div>
+
+</div>
+
+<script>
+    let currentMode    = 'character';
+    let currentWcType  = 'replace';
+    let currentInputMode = 'text';
+    let currentImageB64  = null;
+    let isGenerating   = false;
+    let hasContent     = false;
+
+    let generatedAvatarB64 = null;
+
+    const MODE_CONFIG = {
+        character: {
+            subtitle:       'Character beschreiben',
+            descLabel:      'Beschreib deinen Charakter',
+            imgLabel:       'Charakter-Bild laden',
+            placeholder:    'z.B. Eine kampferprobte Kriegerin mit roten Haaren, schwerer Rüstung und einem großen Schwert.',
+            hint:           'Beschreib den Charakter in Worten — Aussehen, Kleidung, Waffen, Ausdruck. Die KI generiert daraus Prompt-Tags.',
+            imgHint:        'Lade ein Bild hoch — die KI extrahiert automatisch Charakter-Tags daraus.',
+            previewTitle:   'Character Prompt-Tags',
+            namePlaceholder:'z.B. warrior_woman'
+        },
+        style: {
+            subtitle:       'Style beschreiben',
+            descLabel:      'Beschreib den visuellen Stil',
+            imgLabel:       'Stil-Referenzbild laden',
+            placeholder:    'z.B. Klassische Ölmalerei im Stil alter Meister, warme Erdtöne, sichtbare Pinselstriche.',
+            hint:           'Beschreib die Rendering-Technik, Farbpalette, künstlerische Bewegung oder Medium.',
+            imgHint:        'Lade ein Bild hoch — die KI extrahiert den visuellen Stil (nicht den Inhalt) als Tags.',
+            previewTitle:   'Style Prompt-Tags',
+            namePlaceholder:'z.B. oil_painting_warm'
+        },
+        theme: {
+            subtitle:       'Theme / Welt beschreiben',
+            descLabel:      'Beschreib die Welt oder das Setting',
+            imgLabel:       'Setting-Bild laden',
+            placeholder:    'z.B. Postapokalyptische Welt nach einem Atomkrieg — verstrahlte Ödlande, verfallene Städte.',
+            hint:           'Beschreib das Setting, die Ära, Architektur, Atmosphäre und charakteristische Elemente.',
+            imgHint:        'Lade ein Bild hoch — die KI extrahiert das Setting und die Welt-Atmosphäre als Tags.',
+            previewTitle:   'Theme Prompt-Tags',
+            namePlaceholder:'z.B. nuclear_wasteland'
+        },
+        wildcard: {
+            subtitle:       'Wildcard generieren',
+            descLabel:      'Was soll die Wildcard beinhalten?',
+            imgLabel:       'Referenzbild für Wildcard',
+            placeholder:    'z.B. Verschiedene Haarfarben\nOder: Künstlernamen klassischer Meister\nOder: Exotische Landschaften',
+            hint:           '🔄 Replace: konkrete Werte die direkt in den Prompt eingesetzt werden\n⬆️ Prepend: Tags die vorne angehängt werden',
+            imgHint:        'Lade ein Bild hoch — die KI generiert Wildcard-Variationen inspiriert vom Bild-Inhalt.',
+            previewTitle:   'Wildcard-Werte',
+            namePlaceholder:'z.B. hair_colors'
+        },
+        sort: {
+            subtitle:       'Sort-Anweisung beschreiben',
+            descLabel:      'Was soll wie sortiert werden?',
+            imgLabel:       '',
+            placeholder:    'z.B. Sortiere nach dem ersten Tag ob es ein Künstler-Tag ist (beginnt mit @)\nOder: Sortiere nach dominanter Farbe (warm / kalt / neutral)\nOder: Erkenne ob ein bestimmtes Tier im Prompt vorkommt',
+            hint:           'Beschreib die Sortier-Logik in Worten. Die KI generiert daraus eine präzise Klassifizierungs-Anweisung für den Sort-Modus.',
+            imgHint:        '',
+            previewTitle:   'Sort-Anweisung',
+            namePlaceholder:'z.B. artist_tag'
+        },
+        user_avatar: {
+            subtitle:       'User Avatar generieren',
+            descLabel:      '',
+            imgLabel:       '',
+            placeholder:    '',
+            hint:           '',
+            imgHint:        '',
+            previewTitle:   'Generierter Avatar',
+            namePlaceholder:''
+        }
+    };
+
+    function setInputMode(mode) {
+        currentInputMode = mode;
+        document.getElementById('mode-text-btn').classList.toggle('active', mode === 'text');
+        document.getElementById('mode-img-btn').classList.toggle('active', mode === 'image');
+        document.getElementById('text-input-wrap').style.display  = mode === 'text'  ? 'block' : 'none';
+        document.getElementById('image-input-wrap').style.display = mode === 'image' ? 'block' : 'none';
+        updateHint();
+    }
+
+    function updateHint() {
+        const cfg = MODE_CONFIG[currentMode];
+        document.getElementById('mode-hint').textContent   = currentInputMode === 'image' ? cfg.imgHint : cfg.hint;
+        document.getElementById('img-label').textContent   = cfg.imgLabel;
+    }
+
+    function handleImgDrop(e) {
+        e.preventDefault();
+        document.getElementById('img-drop').classList.remove('drag-over');
+        const file = e.dataTransfer.files[0];
+        if (file && file.type.startsWith('image/')) loadImageFile(file);
+    }
+
+    function loadImageFile(file) {
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = ev => {
+            const dataUrl = ev.target.result;
+            currentImageB64 = dataUrl.split(',')[1];
+            document.getElementById('img-preview-wrap').innerHTML =
+                `<img src="${dataUrl}" class="cr-img-preview">`;
+            document.getElementById('img-clear-btn').style.display = 'flex';
+        };
+        reader.readAsDataURL(file);
+    }
+
+    function clearImage() {
+        currentImageB64 = null;
+        document.getElementById('img-preview-wrap').innerHTML =
+            '<div class="cr-img-drop-hint"><span>🖼️</span><span>Bild ziehen oder klicken</span></div>';
+        document.getElementById('img-clear-btn').style.display = 'none';
+        document.getElementById('img-file').value = '';
+    }
+
+    function setMode(mode, btn) {
+        currentMode = mode;
+        document.querySelectorAll('.cr-mode-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+
+        const cfg      = MODE_CONFIG[mode];
+        const isSort   = mode === 'sort';
+        const isAvatar = mode === 'user_avatar';
+
+        document.getElementById('input-subtitle').textContent   = cfg.subtitle;
+        document.getElementById('preview-subtitle').textContent = cfg.previewTitle;
+
+        if (!isAvatar) {
+            document.getElementById('desc-label').textContent  = cfg.descLabel;
+            document.getElementById('desc-input').placeholder  = cfg.placeholder;
+            document.getElementById('save-name').placeholder   = cfg.namePlaceholder;
+        }
+
+        document.getElementById('wc-type-field').style.display    = mode === 'wildcard' ? 'block' : 'none';
+        document.querySelector('.cr-input-toggle').style.display   = (isSort || isAvatar) ? 'none' : '';
+        document.getElementById('text-input-wrap').style.display   = isAvatar ? 'none' : (currentInputMode === 'text'  ? 'block' : 'none');
+        document.getElementById('image-input-wrap').style.display  = isAvatar ? 'none' : (currentInputMode === 'image' ? 'block' : 'none');
+        document.getElementById('mode-hint').style.display         = isAvatar ? 'none' : '';
+        document.getElementById('generate-btn').style.display      = isAvatar ? 'none' : '';
+        document.getElementById('avatar-input-wrap').style.display = isAvatar ? 'flex' : 'none';
+        document.querySelector('.cr-save-bar').style.display       = isAvatar ? 'none' : '';
+        document.querySelector('.cr-critic-toggle').style.display  = isAvatar ? 'none' : '';
+
+        if (isSort) setInputMode('text');
+        if (!isAvatar) updateHint();
+
+        resetPreview();
+
+        // Avatar-specific preview overrides (after resetPreview restores display)
+        document.getElementById('preview-display').style.display  = isAvatar ? 'none' : '';
+        document.getElementById('preview-edit').style.display     = isAvatar ? 'none' : 'none';
+        document.getElementById('avatar-preview-wrap').style.display = isAvatar ? 'flex' : 'none';
+    }
+
+    function setWcType(type) {
+        currentWcType = type;
+        document.getElementById('wc-replace-btn').classList.toggle('active', type === 'replace');
+        document.getElementById('wc-prepend-btn').classList.toggle('active', type === 'prepend');
+    }
+
+    function handleKey(e) {
+        if (e.key === 'Enter' && e.ctrlKey) {
+            e.preventDefault();
+            generate();
+        }
+    }
+
+    function resetPreview() {
+        hasContent = false;
+        const display = document.getElementById('preview-display');
+        const edit    = document.getElementById('preview-edit');
+        display.style.display = '';
+        display.className = 'cr-preview-box empty';
+        display.innerHTML = '<div class="cr-preview-empty-icon">✨</div><span>Noch nichts generiert</span>';
+        edit.style.display = 'none';
+        edit.value = '';
+        document.getElementById('save-btn').disabled = true;
+        document.getElementById('save-status').textContent = '';
+        document.getElementById('critic-btn').disabled = true;
+        document.getElementById('critic-result').classList.remove('visible');
+    }
+
+    async function runCreatorCritic() {
+        const content   = document.getElementById('preview-edit').value.trim();
+        const resultDiv = document.getElementById('critic-result');
+        const btn       = document.getElementById('critic-btn');
+        if (!content) return;
+
+        btn.disabled    = true;
+        btn.textContent = '⏳ Analysiere...';
+        resultDiv.classList.add('visible');
+        resultDiv.innerHTML = '<span style="color:var(--muted);font-size:0.8rem">🔍 Analysiere...</span>';
+
+        try {
+            const resp = await fetch('/api/creator/critique', {
+                method:  'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body:    JSON.stringify({ mode: currentMode, content })
+            });
+            const d = await resp.json();
+
+            const scoreColor = d.score >= 8 ? '#4caf50' : d.score >= 5 ? '#ff9800' : '#f44336';
+            const issuesHtml = d.issues?.length
+                ? `<ul class="cr-critic-issues">${d.issues.map(i => `<li>${i}</li>`).join('')}</ul>`
+                : `<p style="color:var(--muted);margin:6px 0 0">✓ Keine Probleme gefunden.</p>`;
+            const hasImproved = d.improved && d.improved.trim() !== content;
+
+            resultDiv.innerHTML = `
+                <div class="cr-critic-header">
+                    <span class="cr-critic-title">🔍 Critic</span>
+                    <span class="cr-critic-score" style="background:${scoreColor}">${d.score ?? '?'}/10</span>
+                </div>
+                ${issuesHtml}
+                ${hasImproved ? `
+                    <div class="cr-critic-improved-label">✨ Verbesserter Inhalt</div>
+                    <button class="cr-critic-apply-btn" onclick="applyImprovedContent(this)">
+                        ✓ Verbesserung übernehmen
+                    </button>
+                    <div style="display:none" class="cr-critic-improved-data">${escapeHtml(d.improved)}</div>
+                ` : ''}`;
+        } catch(e) {
+            resultDiv.innerHTML = `<span style="color:#f44336">❌ ${e.message}</span>`;
+        }
+
+        btn.disabled    = false;
+        btn.textContent = '🔍 Nochmal';
+    }
+
+    function applyImprovedContent(btn) {
+        const improved = btn.nextElementSibling.textContent;
+        document.getElementById('preview-edit').value = improved;
+        btn.textContent = '✅ Übernommen';
+        btn.disabled = true;
+    }
+
+    function escapeHtml(str) {
+        return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    }
+
+    async function generate() {
+        const desc = document.getElementById('desc-input').value.trim();
+        if (currentInputMode === 'image' && !currentImageB64) {
+            document.getElementById('img-drop').style.borderColor = 'var(--accent)';
+            setTimeout(() => document.getElementById('img-drop').style.borderColor = '', 1500);
+            return;
+        }
+        if (currentInputMode === 'text' && !desc) return;
+        if (isGenerating) return;
+
+        isGenerating = true;
+        hasContent   = false;
+        const btn    = document.getElementById('generate-btn');
+        btn.disabled = true;
+        btn.textContent = '⏳ Generiere...';
+
+        const display = document.getElementById('preview-display');
+        const edit    = document.getElementById('preview-edit');
+        display.style.display = '';
+        display.className = 'cr-preview-box streaming cr-cursor';
+        display.textContent = '';
+        edit.style.display = 'none';
+        document.getElementById('save-btn').disabled = true;
+        document.getElementById('save-status').textContent = '';
+
+        let fullText = '';
+
+        try {
+            const resp = await fetch('/api/creator/generate', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    mode:          currentMode,
+                    description:   currentInputMode === 'image'
+                        ? (document.getElementById('img-desc-input').value.trim())
+                        : desc,
+                    image_b64:     currentInputMode === 'image' ? (currentImageB64 || '') : '',
+                    wildcard_type: currentWcType
+                })
+            });
+
+            const reader  = resp.body.getReader();
+            const decoder = new TextDecoder();
+            let buf = '';
+
+            while (true) {
+                const { done, value } = await reader.read();
+                if (done) break;
+                buf += decoder.decode(value, { stream: true });
+                const lines = buf.split('\n');
+                buf = lines.pop();
+
+                for (const line of lines) {
+                    if (!line.startsWith('data: ')) continue;
+                    try {
+                        const data = JSON.parse(line.slice(6));
+                        if (data.type === 'token') {
+                            fullText += data.text;
+                            // Strip <think> tags live
+                            const cleaned = fullText.replace(/<think>[\s\S]*?<\/think>/g, '').trim();
+                            display.textContent = cleaned;
+                        } else if (data.type === 'done') {
+                            // Final cleanup
+                            const cleaned = fullText.replace(/<think>[\s\S]*?<\/think>/g, '').trim();
+                            display.className = 'cr-preview-box';
+                            display.style.display = 'none';
+                            edit.value = cleaned;
+                            edit.style.display = 'block';
+                            hasContent = !!cleaned;
+                            document.getElementById('save-btn').disabled = !hasContent;
+                            document.getElementById('critic-btn').disabled = !hasContent;
+                            document.getElementById('critic-result').classList.remove('visible');
+                            if (hasContent && document.getElementById('critic-enabled').checked) {
+                                runCreatorCritic();
+                            }
+                        } else if (data.type === 'error') {
+                            display.className = 'cr-preview-box';
+                            display.textContent = '❌ ' + data.text;
+                        }
+                    } catch(e) {}
+                }
+            }
+        } catch(e) {
+            display.className = 'cr-preview-box';
+            display.textContent = '❌ ' + e.message;
+        }
+
+        isGenerating = false;
+        btn.disabled = false;
+        btn.textContent = '✨ Generieren';
+    }
+
+    async function saveContent() {
+        const name    = document.getElementById('save-name').value.trim();
+        const content = document.getElementById('preview-edit').value.trim();
+        const btn     = document.getElementById('save-btn');
+        const status  = document.getElementById('save-status');
+
+        if (!name) {
+            document.getElementById('save-name').focus();
+            status.textContent = '⚠️ Name eingeben';
+            return;
+        }
+        if (!content) {
+            status.textContent = '⚠️ Kein Inhalt';
+            return;
+        }
+
+        btn.disabled = true;
+        status.textContent = '💾 Speichert...';
+
+        try {
+            const resp = await fetch('/api/creator/save', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    mode:          currentMode,
+                    name:          name,
+                    content:       content,
+                    wildcard_type: currentWcType
+                })
+            });
+            const data = await resp.json();
+            if (data.ok) {
+                btn.textContent = '✅ Gespeichert';
+                btn.classList.add('success');
+                status.textContent = `→ ${data.filename}`;
+                setTimeout(() => {
+                    btn.textContent = '💾 Speichern';
+                    btn.classList.remove('success');
+                    btn.disabled = false;
+                }, 2500);
+            } else {
+                status.textContent = '❌ ' + (data.error || 'Fehler');
+                btn.disabled = false;
+            }
+        } catch(e) {
+            status.textContent = '❌ ' + e.message;
+            btn.disabled = false;
+        }
+    }
+
+    // ── User Avatar ──────────────────────────────────────────────────────────
+
+    async function loadAvatarWorkflows() {
+        try {
+            const r = await fetch('/api/workflows');
+            const d = await r.json();
+            const sel = document.getElementById('avatar-workflow-select');
+            (d.workflows || []).forEach(w => {
+                const opt = document.createElement('option');
+                opt.value = w.name;
+                opt.textContent = w.display_name;
+                sel.appendChild(opt);
+            });
+        } catch(e) {}
+    }
+
+    async function loadAvatarModels() {
+        try {
+            const r = await fetch('/api/comfy/all-checkpoints');
+            const d = await r.json();
+            const sel = document.getElementById('avatar-model-select');
+            [...(d.checkpoints || []), ...(d.unets || [])].forEach(m => {
+                const opt = document.createElement('option');
+                opt.value = m;
+                opt.textContent = m.split('\\\\').pop().split('/').pop();
+                sel.appendChild(opt);
+            });
+        } catch(e) {}
+    }
+
+    async function generateUserAvatar() {
+        const subject  = document.getElementById('avatar-desc').value.trim();
+        const workflow = document.getElementById('avatar-workflow-select').value;
+        if (!subject)  { alert('Bitte beschreibe deinen Avatar.'); return; }
+        if (!workflow) { alert('Bitte einen Workflow wählen.'); return; }
+
+        const btn = document.getElementById('avatar-gen-btn');
+        btn.disabled = true;
+        btn.textContent = '⏳ Generiere...';
+        document.getElementById('avatar-status-label').textContent = '⏳ Generiere...';
+        generatedAvatarB64 = null;
+        document.getElementById('avatar-save-btn').disabled = true;
+        document.getElementById('avatar-save-status').textContent = '';
+
+        try {
+            // Build prompt via API
+            const pr = await fetch('/api/creator/user-avatar-prompt', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ subject })
+            });
+            const pd = await pr.json();
+            if (pd.error) throw new Error(pd.error);
+
+            // Load workflow JSON
+            const wr = await fetch(`/api/workflows/${workflow}`);
+            const wd = await wr.json();
+            const wf = wd.workflow;
+
+            // Inject prompt into positive CLIPTextEncode node
+            for (const [id, node] of Object.entries(wf)) {
+                if (node.class_type === 'CLIPTextEncode') {
+                    for (const n of Object.values(wf)) {
+                        if ((n.class_type === 'KSampler' || n.class_type === 'KSamplerAdvanced')
+                            && String(n.inputs?.positive?.[0]) === id) {
+                            node.inputs.text = pd.prompt;
+                        }
+                    }
+                }
+                // Portrait 3:4
+                if (node.class_type === 'EmptyLatentImage') {
+                    node.inputs.width  = 768;
+                    node.inputs.height = 1024;
+                }
+            }
+
+            // Optional model override
+            const model = document.getElementById('avatar-model-select').value;
+            if (model) {
+                for (const node of Object.values(wf)) {
+                    if (node.class_type === 'CheckpointLoaderSimple') { node.inputs.ckpt_name = model; break; }
+                    if (node.class_type === 'UNETLoader')              { node.inputs.unet_name = model; break; }
+                }
+            }
+
+            // Run workflow via SSE
+            const resp = await fetch('/api/workflows/run', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ workflow: wf, artist_mode: null })
+            });
+
+            const reader  = resp.body.getReader();
+            const decoder = new TextDecoder();
+            let buf = '';
+            const imgWrap = document.getElementById('avatar-preview-img-wrap');
+
+            while (true) {
+                const { done, value } = await reader.read();
+                if (done) break;
+                buf += decoder.decode(value, { stream: true });
+                const lines = buf.split('\n');
+                buf = lines.pop();
+                for (const line of lines) {
+                    if (!line.startsWith('data: ')) continue;
+                    try {
+                        const data = JSON.parse(line.slice(6));
+                        if (data.type === 'image_preview') {
+                            imgWrap.innerHTML = `<img src="data:image/jpeg;base64,${data.b64}" style="width:100%;height:100%;object-fit:cover;opacity:.6;filter:blur(2px)">`;
+                        } else if (data.type === 'image_done') {
+                            generatedAvatarB64 = data.image_b64;
+                            imgWrap.innerHTML = `<img src="data:image/png;base64,${data.image_b64}" style="width:100%;height:100%;object-fit:cover;border-radius:14px">`;
+                            document.getElementById('avatar-status-label').textContent = '✓ Bereit zum Speichern';
+                            document.getElementById('avatar-save-btn').disabled = false;
+                        }
+                    } catch(e) {}
+                }
+            }
+        } catch(e) {
+            document.getElementById('avatar-status-label').textContent = '❌ ' + e.message;
+        }
+
+        btn.disabled = false;
+        btn.textContent = '🎨 Avatar generieren';
+    }
+
+    async function saveUserAvatar() {
+        if (!generatedAvatarB64) return;
+        const btn    = document.getElementById('avatar-save-btn');
+        const status = document.getElementById('avatar-save-status');
+        btn.disabled = true;
+        status.textContent = '💾 Speichert...';
+        try {
+            const r = await fetch('/api/creator/save-user-avatar', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ image_b64: generatedAvatarB64 })
+            });
+            const d = await r.json();
+            if (d.ok) {
+                status.textContent = '✅ user.png gespeichert!';
+                btn.textContent = '✅ Gespeichert';
+                setTimeout(() => {
+                    status.textContent = '';
+                    btn.textContent = '💾 Als user.png speichern';
+                    btn.disabled = false;
+                }, 3000);
+            } else {
+                throw new Error(d.error || 'Fehler');
+            }
+        } catch(e) {
+            status.textContent = '❌ ' + e.message;
+            btn.disabled = false;
+        }
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+        loadAvatarWorkflows();
+        loadAvatarModels();
+    });
+
+    // ── App Header: Personality ──
+    (async function loadAppHeader() {
+        try {
+            const [ar, lr] = await Promise.all([
+                fetch('/api/personalities/active'),
+                fetch('/api/personalities')
+            ]);
+            const { active } = await ar.json();
+            const { personalities } = await lr.json();
+            const p = personalities.find(x => x.name === active);
+            const nameEl = document.getElementById('app-name');
+            if (nameEl) nameEl.textContent = `${active} — AI Assistant`;
+            const logoEl = document.getElementById('app-logo');
+            if (logoEl && p?.has_logo)
+                logoEl.src = `/api/personalities/${active}/logo?t=${Date.now()}`;
+        } catch(e) {}
+    })();
+</script>
+<script src="frontend/navigation.js"></script>
+</body>
+</html>

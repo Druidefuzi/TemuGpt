@@ -7,15 +7,45 @@ LM_API        = "http://localhost:1234"
 COMFY_URL     = "http://127.0.0.1:8188"
 MODEL_DEFAULT = "huihui-qwen3-vl-4b-instruct-abliterated"
 
-OUTPUT_DIR     = Path.home() / "Dokumente" / "LLM_Output"
-EXPORT_IMG_DIR = Path(__file__).parent / "exportImg"
-MODELS_DIR     = Path.home() / ".lmstudio" / "models"
-KNOWLEDGE_DIR  = Path(__file__).parent / "knowledge"
-WORKFLOWS_DIR  = Path(__file__).parent / "workflows"
-DB_PATH        = Path(__file__).parent / "chats.db"
+# ─── Basis-Verzeichnisse ───────────────────────────────────────────────────────
+_ROOT     = Path(__file__).parent
+_DATA     = _ROOT / "data"
 
-# Verzeichnisse anlegen
+# ─── Externe Pfade ────────────────────────────────────────────────────────────
+OUTPUT_DIR  = Path.home() / "Dokumente" / "LLM_Output"
+MODELS_DIR  = Path.home() / ".lmstudio" / "models"
+
+# ─── Datenpfade (alle unter data/) ────────────────────────────────────────────
+EXPORT_IMG_DIR = _DATA / "exportImg"
+REFERENCE_DIR  = _DATA / "reference"
+PERSONALITY_DIR = _DATA / "personality"
+KNOWLEDGE_DIR  = _DATA / "knowledge"
+SORTS_DIR      = _DATA / "sorts"
+SKILLS_DIR     = _DATA / "skills" / "image_prompt"
+WILDCARDS_DIR  = _DATA / "wildcards"
+WORKFLOWS_DIR  = _DATA / "workflows"
+STYLES_DIR     = _DATA / "styles"
+THEMES_DIR     = _DATA / "themes"
+CHARACTERS_DIR = _DATA / "characters"
+DB_PATH        = _DATA / "chats.db"
+
+# ─── Verzeichnisse anlegen ────────────────────────────────────────────────────
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 EXPORT_IMG_DIR.mkdir(parents=True, exist_ok=True)
-KNOWLEDGE_DIR.mkdir(exist_ok=True)
-WORKFLOWS_DIR.mkdir(exist_ok=True)
+REFERENCE_DIR.mkdir(parents=True, exist_ok=True)
+PERSONALITY_DIR.mkdir(parents=True, exist_ok=True)
+(PERSONALITY_DIR / "default").mkdir(exist_ok=True)
+KNOWLEDGE_DIR.mkdir(parents=True, exist_ok=True)
+SORTS_DIR.mkdir(parents=True, exist_ok=True)
+WORKFLOWS_DIR.mkdir(parents=True, exist_ok=True)
+STYLES_DIR.mkdir(parents=True, exist_ok=True)
+THEMES_DIR.mkdir(parents=True, exist_ok=True)
+CHARACTERS_DIR.mkdir(parents=True, exist_ok=True)
+WILDCARDS_DIR.mkdir(parents=True, exist_ok=True)
+(WILDCARDS_DIR / "prepend").mkdir(exist_ok=True)
+(WILDCARDS_DIR / "replace").mkdir(exist_ok=True)
+SKILLS_DIR.mkdir(parents=True, exist_ok=True)
+(SKILLS_DIR / "danbooru").mkdir(exist_ok=True)
+(SKILLS_DIR / "mixed").mkdir(exist_ok=True)
+(SKILLS_DIR / "natural").mkdir(exist_ok=True)
+(SKILLS_DIR / "shared").mkdir(exist_ok=True)
